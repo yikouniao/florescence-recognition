@@ -1,0 +1,9 @@
+# exclude VS project files
+*.vcxproj
+*.filters
+*.user
+/Debug
+
+temp.cpp
+
+/data

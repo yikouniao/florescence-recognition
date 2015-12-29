@@ -4,6 +4,8 @@
 *.user
 /Debug
 
-temp.cpp
+# exclude Thumbs.db
+/data/*/Thumbs.db
 
-/data
+# exclude temp.cpp
+temp.cpp

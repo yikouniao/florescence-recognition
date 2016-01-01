@@ -9,3 +9,5 @@
 
 # exclude temp.cpp
 temp.cpp
+
+/data/train.xml

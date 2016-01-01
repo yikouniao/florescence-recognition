@@ -15,16 +15,33 @@ void InitImages(vector<Image>& images) {
   }
 }
 
+static void SaveImages(const string& filename, const vector<Image>& images)
+{
+  cout << "Saving images...";
+  FileStorage fs(filename, FileStorage::WRITE);
+  fs << "images" << "["; // text - string sequence
+  for (const auto& e : images) {
+    if (e.datatype == TRAIN) {
+      fs << e.f_name << "train";
+    } else {
+      fs << e.f_name << "test";
+    }
+  }
+  fs << "]"; // close sequence
+}
+
 static bool readVocabulary(const string& filename, Mat& vocabulary)
 {
   cout << "Reading vocabulary...";
   FileStorage fs(filename, FileStorage::READ);
-  if (fs.isOpened())
-  {
-    fs["vocabulary"] >> vocabulary;
-    cout << "done" << endl;
-    return true;
-  }
+  // comment out following lines to re-generate vocabularies each time
+  // uncomment them to read existing vocabularies
+  //if (fs.isOpened())
+  //{
+  //  fs["vocabulary"] >> vocabulary;
+  //  cout << "done" << endl;
+  //  return true;
+  //}
   return false;
 }
 
@@ -68,6 +85,7 @@ static Mat trainVocabulary(const string& filename,
       if (images[randImgIdx].datatype == TRAIN)
         continue;
       --i;
+      images[randImgIdx].datatype = TRAIN;
       Mat colorImage = imread(images[randImgIdx].f_name);
       if (!colorImage.data) {
         cerr << images[randImgIdx].f_name << "can not be read.\n";
@@ -86,11 +104,8 @@ static Mat trainVocabulary(const string& filename,
             bowTrainer.add(imageDescriptors.row(i));
         }
       }
-
-      // Delete the current element from images so it is not added again
-      images.erase(images.begin() + randImgIdx);
     }
-
+    SaveImages(images_path, images);
     cout << "Actual descriptor count: " << bowTrainer.descriptorsCount() << endl;
 
     cout << "Training vocabulary..." << endl;
@@ -125,7 +140,22 @@ void test0() {
   }
 
   // 1. Train visual word vocabulary if a pre-calculated vocabulary file doesn't already exist from previous run
-  string train_f = "data/train.xml";
-  Mat vocabulary = trainVocabulary(train_f, featureDetector, descExtractor);
+  Mat vocabulary = trainVocabulary(train_vocabulary_path, featureDetector, descExtractor);
   bowExtractor->setVocabulary(vocabulary);
+
+  // 2. Train a classifier and run a sample query for each object class
+  const vector<string>& objClasses = vocData.getObjectClasses(); // object class list
+  for (size_t classIdx = 0; classIdx < objClasses.size(); ++classIdx)
+  {
+    // Train a classifier on train dataset
+    Ptr<SVM> svm = trainSVMClassifier(svmTrainParamsExt, objClasses[classIdx], vocData,
+      bowExtractor, featureDetector, resPath);
+
+    // Now use the classifier over all images on the test dataset and rank according to score order
+    // also calculating precision-recall etc.
+    computeConfidences(svm, objClasses[classIdx], vocData,
+      bowExtractor, featureDetector, resPath);
+    // Calculate precision/recall/ap and use GNUPlot to output to a pdf file
+    computeGnuPlotOutput(resPath, objClasses[classIdx], vocData);
+  }
 }

@@ -9,6 +9,8 @@ const std::vector<std::string> pic_dir {
   "Non-bloomed/",
   "Partially-bloomed/"
 };
+const std::string images_path = "data/images.xml";
+const std::string train_vocabulary_path = "data/train.xml";
 
 const int vocab_size = 50;
 const size_t train_pic_num = 20;
@@ -29,6 +31,8 @@ struct Image {
 };
 
 void InitImages(std::vector<Image>& images);
+static void SaveImages(const std::string& filename,
+                       const std::vector<Image>& images);
 static bool readVocabulary(const std::string& filename, cv::Mat& vocabulary);
 static bool writeVocabulary(const std::string& filename,
                             const cv::Mat& vocabulary);

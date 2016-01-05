@@ -144,7 +144,9 @@ void test0() {
   bowExtractor->setVocabulary(vocabulary);
 
   // 2. Train a classifier and run a sample query for each object class
-  const vector<string>& objClasses = vocData.getObjectClasses(); // object class list
+  // objClasses = {"bird","bicycle"...}
+  //const vector<string>& objClasses = vocData.getObjectClasses(); // object class list
+  const vector<string>& objClasses = pic_dir;
   for (size_t classIdx = 0; classIdx < objClasses.size(); ++classIdx)
   {
     // Train a classifier on train dataset

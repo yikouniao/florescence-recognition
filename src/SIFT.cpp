@@ -2,6 +2,7 @@
 
 using namespace cv;
 using namespace cv::xfeatures2d;
+using namespace cv::ml;
 using namespace std;
 
 void InitImages(vector<Image>& images) {
@@ -120,6 +121,114 @@ static Mat trainVocabulary(const string& filename,
   return vocabulary;
 }
 
+static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const string& objClassName, VocData& vocData,
+  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector)
+{
+  /* first check if a previously trained svm for the current class has been saved to file */
+  string svmFilename = svms_dir + "/" + objClassName + ".xml.gz";
+  Ptr<SVM> svm;
+
+  FileStorage fs(svmFilename, FileStorage::READ);
+
+  // uncomment the following lines to read existing svm data if available
+  //if (fs.isOpened())
+  //{
+  //  cout << "LOADING SVM CLASSIFIER FOR CLASS " << objClassName << "\n";
+  //  svm = StatModel::load<SVM>(svmFilename);
+  //  return svm;
+  //}
+
+  cout << "TRAINING CLASSIFIER FOR CLASS " << objClassName << "\n";
+  cout << "CALCULATING BOW VECTORS FOR TRAINING SET OF " << objClassName << "\n";
+
+  // Get classification ground truth for images in the training set
+  vector<Image> images;
+  vector<Mat> bowImageDescriptors;
+  vector<char> objectPresent;
+  vocData.getClassImages(objClassName, CV_OBD_TRAIN, images, objectPresent);
+
+  // Compute the bag of words vector for each image in the training set.
+  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector, resPath);
+
+  // Remove any images for which descriptors could not be calculated
+  removeEmptyBowImageDescriptors(images, bowImageDescriptors, objectPresent);
+
+  CV_Assert(svmParamsExt.descPercent > 0.f && svmParamsExt.descPercent <= 1.f);
+  if (svmParamsExt.descPercent < 1.f)
+  {
+    int descsToDelete = static_cast<int>(static_cast<float>(images.size())*(1.0 - svmParamsExt.descPercent));
+
+    cout << "Using " << (images.size() - descsToDelete) << " of " << images.size() <<
+      " descriptors for training (" << svmParamsExt.descPercent*100.0 << " %)" << endl;
+    removeBowImageDescriptorsByCount(images, bowImageDescriptors, objectPresent, svmParamsExt, descsToDelete);
+  }
+
+  // Prepare the input matrices for SVM training.
+  Mat trainData((int)images.size(), bowExtractor->getVocabulary().rows, CV_32FC1);
+  Mat responses((int)images.size(), 1, CV_32SC1);
+
+  // Transfer bag of words vectors and responses across to the training data matrices
+  for (size_t imageIdx = 0; imageIdx < images.size(); imageIdx++)
+  {
+    // Transfer image descriptor (bag of words vector) to training data matrix
+    Mat submat = trainData.row((int)imageIdx);
+    if (bowImageDescriptors[imageIdx].cols != bowExtractor->descriptorSize())
+    {
+      cout << "Error: computed bow image descriptor size " << bowImageDescriptors[imageIdx].cols
+        << " differs from vocabulary size" << bowExtractor->getVocabulary().cols << endl;
+      exit(-1);
+    }
+    bowImageDescriptors[imageIdx].copyTo(submat);
+
+    // Set response value
+    responses.at<int>((int)imageIdx) = objectPresent[imageIdx] ? 1 : -1;
+  }
+
+  cout << "TRAINING SVM FOR CLASS ..." << objClassName << "..." << endl;
+  svm = SVM::create();
+  setSVMParams(svm, responses, svmParamsExt.balanceClasses);
+  ParamGrid c_grid, gamma_grid, p_grid, nu_grid, coef_grid, degree_grid;
+  setSVMTrainAutoParams(c_grid, gamma_grid, p_grid, nu_grid, coef_grid, degree_grid);
+
+  svm->trainAuto(TrainData::create(trainData, ROW_SAMPLE, responses), 10,
+    c_grid, gamma_grid, p_grid, nu_grid, coef_grid, degree_grid);
+  cout << "SVM TRAINING FOR CLASS " << objClassName << " COMPLETED" << endl;
+
+  svm->save(svmFilename);
+  cout << "SAVED CLASSIFIER TO FILE" << endl;
+
+  return svm;
+}
+
+void SVMTrainParamsExt::SVMTrainParamsExtFile() {
+  string svmFilename = svms_dir + "/svm.xml";
+
+  FileStorage paramsFS(svmFilename, FileStorage::READ);
+  if (paramsFS.isOpened())
+  {
+    FileNode fn = paramsFS.root();
+    FileNode currFn = fn;
+    currFn = fn["svmTrainParamsExt"];
+    read(currFn);
+  }
+  else
+  {
+    paramsFS.open(svmFilename, FileStorage::WRITE);
+    if (paramsFS.isOpened())
+    {
+      paramsFS << "svmTrainParamsExt" << "{";
+      write(paramsFS);
+      paramsFS << "}";
+      paramsFS.release();
+    }
+    else
+    {
+      cout << "File " << svmFilename << "can not be opened to write" << endl;
+      exit(1);
+    }
+  }
+}
+
 void test0() {
   Ptr<Feature2D> featureDetector = SIFT::create();
   Ptr<DescriptorExtractor> descExtractor = featureDetector;
@@ -144,8 +253,8 @@ void test0() {
   bowExtractor->setVocabulary(vocabulary);
 
   // 2. Train a classifier and run a sample query for each object class
-  // objClasses = {"bird","bicycle"...}
-  //const vector<string>& objClasses = vocData.getObjectClasses(); // object class list
+  SVMTrainParamsExt svmTrainParamsExt;
+  SVMTrainParamsExtFile(svmTrainParamsExt);
   const vector<string>& objClasses = pic_dir;
   for (size_t classIdx = 0; classIdx < objClasses.size(); ++classIdx)
   {

@@ -121,6 +121,56 @@ static Mat trainVocabulary(const string& filename,
   return vocabulary;
 }
 
+static bool readBowImageDescriptor(const string& file, Mat& bowImageDescriptor)
+{
+  FileStorage fs(file, FileStorage::READ);
+  if (fs.isOpened())
+  {
+    fs["imageDescriptor"] >> bowImageDescriptor;
+    return true;
+  }
+  return false;
+}
+
+static bool writeBowImageDescriptor(const string& file, const Mat& bowImageDescriptor)
+{
+  FileStorage fs(file, FileStorage::WRITE);
+  if (fs.isOpened())
+  {
+    fs << "imageDescriptor" << bowImageDescriptor;
+    return true;
+  }
+  return false;
+}
+
+// Load in the bag of words vectors for a set of images, from file if possible
+static void calculateImageDescriptors(const vector<Image>& images, vector<Mat>& imageDescriptors,
+  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector)
+{
+  CV_Assert(!bowExtractor->getVocabulary().empty());
+  imageDescriptors.resize(images.size());
+
+  for (size_t i = 0; i < images.size(); i++)
+  {
+    string filename = bowImageDescriptorsDir + "/" + images[i].f_name + ".xml.gz";
+    // uncomment the following line if want to read existing BowImageDescriptor
+    //if (readBowImageDescriptor(filename, imageDescriptors[i])) {}
+
+    Mat colorImage = imread(images[i].f_name);
+    vector<KeyPoint> keypoints;
+    fdetector->detect(colorImage, keypoints);
+    bowExtractor->compute(colorImage, keypoints, imageDescriptors[i]);
+    if (!imageDescriptors[i].empty())
+    {
+      if (!writeBowImageDescriptor(filename, imageDescriptors[i]))
+      {
+        cout << "Error: file " << filename << "can not be opened to write bow image descriptor" << endl;
+        exit(-1);
+      }
+    }
+  }
+}
+
 static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const string& objClassName, VocData& vocData,
   Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector)
 {
@@ -144,24 +194,15 @@ static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const 
   // Get classification ground truth for images in the training set
   vector<Image> images;
   vector<Mat> bowImageDescriptors;
-  vector<char> objectPresent;
-  vocData.getClassImages(objClassName, CV_OBD_TRAIN, images, objectPresent);
+
+  // make images. each pic belongs to some class. maybe.
+  //vocData.getClassImages(objClassName, CV_OBD_TRAIN, images, objectPresent);
 
   // Compute the bag of words vector for each image in the training set.
-  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector, resPath);
+  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector);
 
   // Remove any images for which descriptors could not be calculated
-  removeEmptyBowImageDescriptors(images, bowImageDescriptors, objectPresent);
-
-  CV_Assert(svmParamsExt.descPercent > 0.f && svmParamsExt.descPercent <= 1.f);
-  if (svmParamsExt.descPercent < 1.f)
-  {
-    int descsToDelete = static_cast<int>(static_cast<float>(images.size())*(1.0 - svmParamsExt.descPercent));
-
-    cout << "Using " << (images.size() - descsToDelete) << " of " << images.size() <<
-      " descriptors for training (" << svmParamsExt.descPercent*100.0 << " %)" << endl;
-    removeBowImageDescriptorsByCount(images, bowImageDescriptors, objectPresent, svmParamsExt, descsToDelete);
-  }
+  removeEmptyBowImageDescriptors(images, bowImageDescriptors);
 
   // Prepare the input matrices for SVM training.
   Mat trainData((int)images.size(), bowExtractor->getVocabulary().rows, CV_32FC1);
@@ -229,6 +270,23 @@ void SVMTrainParamsExt::SVMTrainParamsExtFile() {
   }
 }
 
+static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& bowImageDescriptors)
+{
+  CV_Assert(!images.empty());
+  for (int i = (int)images.size() - 1; i >= 0; i--)
+  {
+    //bool res = bowImageDescriptors[i].empty();
+    //if (res)
+    //?????????????????
+    if (bowImageDescriptors[i].empty())
+    {
+      cout << "Removing image " << images[i].f_name << " due to no descriptors..." << endl;
+      images.erase(images.begin() + i);
+      bowImageDescriptors.erase(bowImageDescriptors.begin() + i);
+    }
+  }
+}
+
 void test0() {
   Ptr<Feature2D> featureDetector = SIFT::create();
   Ptr<DescriptorExtractor> descExtractor = featureDetector;
@@ -254,7 +312,7 @@ void test0() {
 
   // 2. Train a classifier and run a sample query for each object class
   SVMTrainParamsExt svmTrainParamsExt;
-  SVMTrainParamsExtFile(svmTrainParamsExt);
+  svmTrainParamsExt.SVMTrainParamsExtFile();
   const vector<string>& objClasses = pic_dir;
   for (size_t classIdx = 0; classIdx < objClasses.size(); ++classIdx)
   {

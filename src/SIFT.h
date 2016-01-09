@@ -12,6 +12,7 @@ const std::vector<std::string> pic_dir {
 const std::string images_path = data_dir + "images.xml";
 const std::string train_vocabulary_path = data_dir + "vocabulary.xml.gz";
 const std::string svms_dir = data_dir + "svms";
+const std::string bowImageDescriptorsDir = data_dir + "bowImageDescriptors";
 
 const int vocab_size = 50;
 const size_t train_pic_num = 20;
@@ -44,7 +45,7 @@ static cv::Mat trainVocabulary(
 
 struct SVMTrainParamsExt
 {
-  SVMTrainParamsExt() : descPercent(0.5f), targetRatio(0.4f), balanceClasses(true) {}
+  SVMTrainParamsExt() : descPercent(1.f), targetRatio(0.4f), balanceClasses(true) {}
   SVMTrainParamsExt(float _descPercent, float _targetRatio, bool _balanceClasses) :
     descPercent(_descPercent), targetRatio(_targetRatio), balanceClasses(_balanceClasses) {}
   void read(const cv::FileNode& fn)
@@ -75,5 +76,12 @@ struct SVMTrainParamsExt
   // (if true cSvmTrainTargetRatio is ignored).
   bool balanceClasses;
 };
+
+static bool readBowImageDescriptor(const std::string& file, cv::Mat& bowImageDescriptor);
+static bool writeBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
+static void calculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
+  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector);
+static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bowImageDescriptors,
+  std::vector<char>& objectPresent);
 
 void test0();

@@ -1,4 +1,5 @@
 #include "SIFT.h"
+#include <fstream>
 
 using namespace cv;
 using namespace cv::xfeatures2d;
@@ -340,6 +341,23 @@ static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& b
   }
 }
 
+static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& bowImageDescriptors)
+{
+  CV_Assert(!images.empty());
+  for (int i = (int)images.size() - 1; i >= 0; i--)
+  {
+    //bool res = bowImageDescriptors[i].empty();
+    //if (res)
+    //?????????????????
+    if (bowImageDescriptors[i].empty())
+    {
+      cout << "Removing image " << images[i].f_name << " due to no descriptors..." << endl;
+      images.erase(images.begin() + i);
+      bowImageDescriptors.erase(bowImageDescriptors.begin() + i);
+    }
+  }
+}
+
 static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
   Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector,
   vector<Image>& images)
@@ -348,13 +366,11 @@ static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
   cout << "CALCULATING BOW VECTORS FOR TEST SET OF " << objClassName << "..." << endl;
   // Get classification ground truth for images in the test set
   vector<Mat> bowImageDescriptors;
-  vector<char> objectPresent;
-  //vocData.getClassImages(objClassName, CV_OBD_TEST, images, objectPresent);
 
   // Compute the bag of words vector for each image in the test set
-  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector, resPath);
+  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector);
   // Remove any images for which descriptors could not be calculated
-  removeEmptyBowImageDescriptors(images, bowImageDescriptors, objectPresent);
+  removeEmptyBowImageDescriptors(images, bowImageDescriptors);
 
   // Use the bag of words vectors to calculate classifier output for each image in test set
   cout << "CALCULATING CONFIDENCE SCORES FOR CLASS " << objClassName << "..." << endl;
@@ -374,13 +390,13 @@ static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
   }
 
   cout << "WRITING QUERY RESULTS TO VOC RESULTS FILE FOR CLASS " << objClassName << "..." << endl;
-  vocData.writeClassifierResultsFile(resPath + plotsDir, objClassName, CV_OBD_TEST, images, confidences, 1, true);
+  writeClassifierResultsFile(objClassName, images, confidences, true);
 
   cout << "DONE - " << objClassName << endl;
   cout << "---------------------------------------------------------------" << endl;
 }
 
-static void computeGnuPlotOutput(const string& resPath, const string& objClassName, VocData& vocData)
+static void computeGnuPlotOutput(const string& objClassName)
 {
   vector<float> precision, recall;
   float ap;
@@ -392,6 +408,28 @@ static void computeGnuPlotOutput(const string& resPath, const string& objClassNa
   vocData.calcClassifierPrecRecall(resPath + plotsDir + "/" + resultFile, precision, recall, ap, true);
   cout << "Outputting to GNUPlot file..." << endl;
   vocData.savePrecRecallToGnuplot(resPath + plotsDir + "/" + plotFile, precision, recall, ap, objClassName, CV_VOC_PLOT_PNG);
+}
+
+void writeClassifierResultsFile(const string& obj_class, const vector<Image>& images, const vector<float>& scores, const bool overwrite_ifexists)
+{
+  CV_Assert(images.size() == scores.size());
+
+  string output_file = plotsDir + "/" + obj_class + ".txt";
+
+  //output data to file
+  ofstream result_file(output_file.c_str());
+  if (result_file.is_open())
+  {
+    for (size_t i = 0; i < images.size(); ++i)
+    {
+      result_file << images[i].f_name << " " << scores[i] << endl;
+    }
+    result_file.close();
+  }
+  else {
+    string err_msg = "could not open classifier results file '" + output_file + "' for writing. Before running for the first time, a 'results' subdirectory should be created within the VOC dataset base directory. e.g. if the VOC data is stored in /VOC/VOC2010 then the path /VOC/results must be created.";
+    CV_Error(Error::StsError, err_msg.c_str());
+  }
 }
 
 void test0() {

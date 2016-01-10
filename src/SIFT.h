@@ -21,27 +21,29 @@ enum Florescence {
   FULLY_BLOOMED, NON_BLOOMED, PARTIALLY_BLOOMED,
   CLASS_CNT, CLASS_UNKNOWN = CLASS_CNT
 };
-enum DatasetType { TRAIN, TEST };
 
 struct Image {
-  Image() : f_name(""), florescence(CLASS_UNKNOWN), datatype(TEST) {}
-  Image(std::string p_f, Florescence p_florescence, DatasetType p_datatype)
-      : f_name(p_f), florescence(p_florescence), datatype(p_datatype) {}
+  Image() : f_name(""), florescence(CLASS_UNKNOWN) {}
+  Image(std::string p_f, Florescence p_florescence)
+      : f_name(p_f), florescence(p_florescence) {}
   std::string f_name; // file name
   Florescence florescence; // a flag for different classes
-  DatasetType datatype; // train or test
 };
 
-void InitImages(std::vector<Image>& images);
+static void DivideImagesIntoTrainTest(vector<Image>& images_train,
+                                      vector<Image>& images_test);
+static void InitImages(vector<Image>& images_train, vector<Image>& images_test);
 static void SaveImages(const std::string& filename,
-                       const std::vector<Image>& images);
+                       const std::vector<Image>& images_train,
+                       const std::vector<Image>& images_test);
 static bool readVocabulary(const std::string& filename, cv::Mat& vocabulary);
 static bool writeVocabulary(const std::string& filename,
                             const cv::Mat& vocabulary);
 static cv::Mat trainVocabulary(
     const std::string& filename,
     const cv::Ptr<cv::FeatureDetector>& fdetector,
-    const cv::Ptr<cv::DescriptorExtractor>& dextractor);
+    const cv::Ptr<cv::DescriptorExtractor>& dextractor,
+    std::vector<Image>& images);
 
 struct SVMTrainParamsExt
 {
@@ -80,8 +82,18 @@ struct SVMTrainParamsExt
 static bool readBowImageDescriptor(const std::string& file, cv::Mat& bowImageDescriptor);
 static bool writeBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
 static void calculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
-  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector);
+  cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
 static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bowImageDescriptors,
   std::vector<char>& objectPresent);
-
+static void setSVMParams(cv::Ptr<cv::ml::SVM>& svm, const cv::Mat& responses, bool balanceClasses);
+static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& gamma_grid,
+  cv::ml::ParamGrid& p_grid, cv::ml::ParamGrid& nu_grid,
+  cv::ml::ParamGrid& coef_grid, cv::ml::ParamGrid& degree_grid);
+static cv::Ptr<cv::ml::SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
+  cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
+  std::vector<Image>& images, std::vector<char>& objectPresent);
+static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const std::string& objClassName,
+  cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
+  std::vector<Image>& images);
+static void computeGnuPlotOutput(const std::string& objClassName);
 void test0();

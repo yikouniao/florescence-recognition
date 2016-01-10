@@ -5,28 +5,44 @@ using namespace cv::xfeatures2d;
 using namespace cv::ml;
 using namespace std;
 
-void InitImages(vector<Image>& images) {
+static void DivideImagesIntoTrainTest(vector<Image>& images_train,
+                                      vector<Image>& images_test) {
+  RNG& rng = theRNG();
+  size_t i = train_pic_num;
+  while (i-- > 0)
+  {
+    // Randomly pick an image from the dataset for training
+    int randImgIdx = rng((unsigned)images_test.size());
+    images_train.push_back(images_test[randImgIdx]);
+    images_test.erase(images_test.begin() + randImgIdx);
+  }
+}
+
+static void InitImages(vector<Image>& images_train, vector<Image>& images_test) {
   for (int i = FULLY_BLOOMED; i < CLASS_CNT; ++i) {
     const string dir = data_dir + pic_dir[i];
     vector<String> filenames;
     glob(dir, filenames); // read a sequence of files within a folder
     for (size_t i = 0; i < filenames.size(); ++i) {
-      images.push_back({filenames[i], static_cast<Florescence>(i), TEST});
+      images_test.push_back({filenames[i], static_cast<Florescence>(i)});
     }
   }
+  DivideImagesIntoTrainTest(images_train, images_test);
 }
 
-static void SaveImages(const string& filename, const vector<Image>& images)
+static void SaveImages(const string& filename, const vector<Image>& images_train,
+                       const vector<Image>& images_test)
 {
   cout << "Saving images...";
   FileStorage fs(filename, FileStorage::WRITE);
-  fs << "images" << "["; // text - string sequence
-  for (const auto& e : images) {
-    if (e.datatype == TRAIN) {
-      fs << e.f_name << "train";
-    } else {
-      fs << e.f_name << "test";
-    }
+  fs << "images for training" << "["; // text - string sequence
+  for (const auto& e : images_train) {
+      fs << e.f_name;
+  }
+  fs << "]"; // close sequence
+  fs << "images for testing" << "["; // text - string sequence
+  for (const auto& e : images_test) {
+    fs << e.f_name;
   }
   fs << "]"; // close sequence
 }
@@ -60,36 +76,26 @@ static bool writeVocabulary(const string& filename, const Mat& vocabulary)
 
 static Mat trainVocabulary(const string& filename,
                            const Ptr<FeatureDetector>& fdetector,
-                           const Ptr<DescriptorExtractor>& dextractor)
+                           const Ptr<DescriptorExtractor>& dextractor,
+                           vector<Image>& images)
 {
   Mat vocabulary;
   if (!readVocabulary(filename, vocabulary))
   {
     CV_Assert(dextractor->descriptorType() == CV_32FC1);
 
-    cout << "Extracting data..." << endl;
-    vector<Image> images;
-    InitImages(images);
-
     cout << "Computing descriptors..." << endl;
-    RNG& rng = theRNG();
     TermCriteria terminate_criterion;
     terminate_criterion.epsilon = FLT_EPSILON;
     BOWKMeansTrainer bowTrainer(vocab_size, terminate_criterion, 3, KMEANS_PP_CENTERS);
 
-    size_t i = train_pic_num;
-    while (i > 0)
+    size_t i = images.size();
+    while (i-- > 0)
     {
-      // Randomly pick an image from the dataset which hasn't yet been seen
-      // and compute the descriptors from that image.
-      int randImgIdx = rng((unsigned)images.size());
-      if (images[randImgIdx].datatype == TRAIN)
-        continue;
-      --i;
-      images[randImgIdx].datatype = TRAIN;
-      Mat colorImage = imread(images[randImgIdx].f_name);
+      // compute the descriptors from train image.
+      Mat colorImage = imread(images[i].f_name);
       if (!colorImage.data) {
-        cerr << images[randImgIdx].f_name << "can not be read.\n";
+        cerr << images[i].f_name << "can not be read.\n";
         exit(1);
       }
       vector<KeyPoint> imageKeypoints;
@@ -106,7 +112,6 @@ static Mat trainVocabulary(const string& filename,
         }
       }
     }
-    SaveImages(images_path, images);
     cout << "Actual descriptor count: " << bowTrainer.descriptorsCount() << endl;
 
     cout << "Training vocabulary..." << endl;
@@ -171,8 +176,58 @@ static void calculateImageDescriptors(const vector<Image>& images, vector<Mat>& 
   }
 }
 
-static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const string& objClassName, VocData& vocData,
-  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector)
+static void setSVMParams(Ptr<SVM> & svm, const Mat& responses, bool balanceClasses)
+{
+  int pos_ex = countNonZero(responses == 1);
+  int neg_ex = countNonZero(responses == -1);
+  cout << pos_ex << " positive training samples; " << neg_ex << " negative training samples" << endl;
+
+  svm->setType(SVM::C_SVC);
+  svm->setKernel(SVM::RBF);
+  if (balanceClasses)
+  {
+    Mat class_wts(2, 1, CV_32FC1);
+    // The first training sample determines the '+1' class internally, even if it is negative,
+    // so store whether this is the case so that the class weights can be reversed accordingly.
+    bool reversed_classes = (responses.at<float>(0) < 0.f);
+    if (reversed_classes == false)
+    {
+      class_wts.at<float>(0) = static_cast<float>(pos_ex) / static_cast<float>(pos_ex + neg_ex); // weighting for costs of positive class + 1 (i.e. cost of false positive - larger gives greater cost)
+      class_wts.at<float>(1) = static_cast<float>(neg_ex) / static_cast<float>(pos_ex + neg_ex); // weighting for costs of negative class - 1 (i.e. cost of false negative)
+    }
+    else
+    {
+      class_wts.at<float>(0) = static_cast<float>(neg_ex) / static_cast<float>(pos_ex + neg_ex);
+      class_wts.at<float>(1) = static_cast<float>(pos_ex) / static_cast<float>(pos_ex + neg_ex);
+    }
+    svm->setClassWeights(class_wts);
+  }
+}
+
+static void setSVMTrainAutoParams(ParamGrid& c_grid, ParamGrid& gamma_grid,
+  ParamGrid& p_grid, ParamGrid& nu_grid,
+  ParamGrid& coef_grid, ParamGrid& degree_grid)
+{
+  c_grid = SVM::getDefaultGrid(SVM::C);
+
+  gamma_grid = SVM::getDefaultGrid(SVM::GAMMA);
+
+  p_grid = SVM::getDefaultGrid(SVM::P);
+  p_grid.logStep = 0;
+
+  nu_grid = SVM::getDefaultGrid(SVM::NU);
+  nu_grid.logStep = 0;
+
+  coef_grid = SVM::getDefaultGrid(SVM::COEF);
+  coef_grid.logStep = 0;
+
+  degree_grid = SVM::getDefaultGrid(SVM::DEGREE);
+  degree_grid.logStep = 0;
+}
+
+static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const string& objClassName,
+  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector,
+  vector<Image>& images, vector<char>& objectPresent)
 {
   /* first check if a previously trained svm for the current class has been saved to file */
   string svmFilename = svms_dir + "/" + objClassName + ".xml.gz";
@@ -192,17 +247,13 @@ static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const 
   cout << "CALCULATING BOW VECTORS FOR TRAINING SET OF " << objClassName << "\n";
 
   // Get classification ground truth for images in the training set
-  vector<Image> images;
   vector<Mat> bowImageDescriptors;
-
-  // make images. each pic belongs to some class. maybe.
-  //vocData.getClassImages(objClassName, CV_OBD_TRAIN, images, objectPresent);
-
+  
   // Compute the bag of words vector for each image in the training set.
   calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector);
 
   // Remove any images for which descriptors could not be calculated
-  removeEmptyBowImageDescriptors(images, bowImageDescriptors);
+  removeEmptyBowImageDescriptors(images, bowImageDescriptors, objectPresent);
 
   // Prepare the input matrices for SVM training.
   Mat trainData((int)images.size(), bowExtractor->getVocabulary().rows, CV_32FC1);
@@ -270,7 +321,8 @@ void SVMTrainParamsExt::SVMTrainParamsExtFile() {
   }
 }
 
-static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& bowImageDescriptors)
+static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& bowImageDescriptors,
+  vector<char>& objectPresent)
 {
   CV_Assert(!images.empty());
   for (int i = (int)images.size() - 1; i >= 0; i--)
@@ -283,8 +335,63 @@ static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& b
       cout << "Removing image " << images[i].f_name << " due to no descriptors..." << endl;
       images.erase(images.begin() + i);
       bowImageDescriptors.erase(bowImageDescriptors.begin() + i);
+      objectPresent.erase(objectPresent.begin() + i);
     }
   }
+}
+
+static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
+  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector,
+  vector<Image>& images)
+{
+  cout << "*** CALCULATING CONFIDENCES FOR CLASS " << objClassName << " ***" << endl;
+  cout << "CALCULATING BOW VECTORS FOR TEST SET OF " << objClassName << "..." << endl;
+  // Get classification ground truth for images in the test set
+  vector<Mat> bowImageDescriptors;
+  vector<char> objectPresent;
+  //vocData.getClassImages(objClassName, CV_OBD_TEST, images, objectPresent);
+
+  // Compute the bag of words vector for each image in the test set
+  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector, resPath);
+  // Remove any images for which descriptors could not be calculated
+  removeEmptyBowImageDescriptors(images, bowImageDescriptors, objectPresent);
+
+  // Use the bag of words vectors to calculate classifier output for each image in test set
+  cout << "CALCULATING CONFIDENCE SCORES FOR CLASS " << objClassName << "..." << endl;
+  vector<float> confidences(images.size());
+  float signMul = 1.f;
+  for (size_t imageIdx = 0; imageIdx < images.size(); imageIdx++)
+  {
+    if (imageIdx == 0)
+    {
+      // In the first iteration, determine the sign of the positive class
+      float classVal = confidences[imageIdx] = svm->predict(bowImageDescriptors[imageIdx], noArray(), 0);
+      float scoreVal = confidences[imageIdx] = svm->predict(bowImageDescriptors[imageIdx], noArray(), StatModel::RAW_OUTPUT);
+      signMul = (classVal < 0) == (scoreVal < 0) ? 1.f : -1.f;
+    }
+    // svm output of decision function
+    confidences[imageIdx] = signMul * svm->predict(bowImageDescriptors[imageIdx], noArray(), StatModel::RAW_OUTPUT);
+  }
+
+  cout << "WRITING QUERY RESULTS TO VOC RESULTS FILE FOR CLASS " << objClassName << "..." << endl;
+  vocData.writeClassifierResultsFile(resPath + plotsDir, objClassName, CV_OBD_TEST, images, confidences, 1, true);
+
+  cout << "DONE - " << objClassName << endl;
+  cout << "---------------------------------------------------------------" << endl;
+}
+
+static void computeGnuPlotOutput(const string& resPath, const string& objClassName, VocData& vocData)
+{
+  vector<float> precision, recall;
+  float ap;
+
+  const string resultFile = vocData.getResultsFilename(objClassName, CV_VOC_TASK_CLASSIFICATION, CV_OBD_TEST);
+  const string plotFile = resultFile.substr(0, resultFile.size() - 4) + ".plt";
+
+  cout << "Calculating precision recall curve for class '" << objClassName << "'" << endl;
+  vocData.calcClassifierPrecRecall(resPath + plotsDir + "/" + resultFile, precision, recall, ap, true);
+  cout << "Outputting to GNUPlot file..." << endl;
+  vocData.savePrecRecallToGnuplot(resPath + plotsDir + "/" + plotFile, precision, recall, ap, objClassName, CV_VOC_PLOT_PNG);
 }
 
 void test0() {
@@ -306,8 +413,11 @@ void test0() {
     bowExtractor = makePtr<BOWImgDescriptorExtractor>(descExtractor, descMatcher);
   }
 
+  vector<Image> images_train, images_test;
+  InitImages(images_train, images_test);
+  SaveImages(images_path, images_train, images_test);
   // 1. Train visual word vocabulary if a pre-calculated vocabulary file doesn't already exist from previous run
-  Mat vocabulary = trainVocabulary(train_vocabulary_path, featureDetector, descExtractor);
+  Mat vocabulary = trainVocabulary(train_vocabulary_path, featureDetector, descExtractor, images_train);
   bowExtractor->setVocabulary(vocabulary);
 
   // 2. Train a classifier and run a sample query for each object class
@@ -316,15 +426,21 @@ void test0() {
   const vector<string>& objClasses = pic_dir;
   for (size_t classIdx = 0; classIdx < objClasses.size(); ++classIdx)
   {
+    vector<char> object_present;
+    // init objectPresent
+    for (size_t image_idx = 0; image_idx < images_train.size(); ++ image_idx) {
+      object_present.push_back(classIdx == images_train[image_idx].florescence);
+    }
+
     // Train a classifier on train dataset
-    Ptr<SVM> svm = trainSVMClassifier(svmTrainParamsExt, objClasses[classIdx], vocData,
-      bowExtractor, featureDetector, resPath);
+    Ptr<SVM> svm = trainSVMClassifier(svmTrainParamsExt, objClasses[classIdx],
+      bowExtractor, featureDetector, images_train, object_present);
 
     // Now use the classifier over all images on the test dataset and rank according to score order
     // also calculating precision-recall etc.
-    computeConfidences(svm, objClasses[classIdx], vocData,
-      bowExtractor, featureDetector, resPath);
+    computeConfidences(svm, objClasses[classIdx],
+      bowExtractor, featureDetector, images_test);
     // Calculate precision/recall/ap and use GNUPlot to output to a pdf file
-    computeGnuPlotOutput(resPath, objClasses[classIdx], vocData);
+    computeGnuPlotOutput(objClasses[classIdx]);
   }
 }

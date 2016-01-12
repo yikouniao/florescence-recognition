@@ -31,9 +31,9 @@ struct Image {
   Florescence florescence; // a flag for different classes
 };
 
-static void DivideImagesIntoTrainTest(vector<Image>& images_train,
-                                      vector<Image>& images_test);
-static void InitImages(vector<Image>& images_train, vector<Image>& images_test);
+static void DivideImagesIntoTrainTest(std::vector<Image>& images_train,
+  std::vector<Image>& images_test);
+static void InitImages(std::vector<Image>& images_train, std::vector<Image>& images_test);
 static void SaveImages(const std::string& filename,
                        const std::vector<Image>& images_train,
                        const std::vector<Image>& images_test);
@@ -97,15 +97,13 @@ static cv::Ptr<cv::ml::SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParam
 static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const std::string& objClassName,
   cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images);
-static void computeGnuPlotOutput(const std::string& objClassName);
-//Write VOC-compliant classifier results file
+//Write classifier results file
 //-------------------------------------------
 //INPUTS:
-// - obj_class          The VOC object class identifier string
-// - dataset            Specifies whether working with the training or test set
+// - obj_class          The object class identifier string
 // - images             An array of ObdImage containing the images for which data will be saved to the result file
 // - scores             A corresponding array of confidence scores given a query
 //NOTES:
 // The result file path and filename are determined automatically using m_results_directory as a base
-void writeClassifierResultsFile(const string& obj_class, const vector<Image>& images, const vector<float>& scores, const bool overwrite_ifexists);
+void writeClassifierResultsFile(const std::string& obj_class, const std::vector<Image>& images, const std::vector<float>& scores, const bool overwrite_ifexists);
 void test0();

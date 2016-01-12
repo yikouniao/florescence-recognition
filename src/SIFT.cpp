@@ -24,8 +24,8 @@ static void InitImages(vector<Image>& images_train, vector<Image>& images_test) 
     const string dir = data_dir + pic_dir[i];
     vector<String> filenames;
     glob(dir, filenames); // read a sequence of files within a folder
-    for (size_t i = 0; i < filenames.size(); ++i) {
-      images_test.push_back({filenames[i], static_cast<Florescence>(i)});
+    for (size_t j = 0; j < filenames.size(); ++j) {
+      images_test.push_back({filenames[j], static_cast<Florescence>(i)});
     }
   }
   DivideImagesIntoTrainTest(images_train, images_test);
@@ -36,12 +36,14 @@ static void SaveImages(const string& filename, const vector<Image>& images_train
 {
   cout << "Saving images...";
   FileStorage fs(filename, FileStorage::WRITE);
-  fs << "images for training" << "["; // text - string sequence
+  fs << "strings" << "["; // text - string sequence
+  fs << "images for training";
   for (const auto& e : images_train) {
       fs << e.f_name;
   }
   fs << "]"; // close sequence
-  fs << "images for testing" << "["; // text - string sequence
+  fs << "strings" << "["; // text - string sequence
+  fs << "images for testing"; // text - string sequence
   for (const auto& e : images_test) {
     fs << e.f_name;
   }
@@ -158,7 +160,7 @@ static void calculateImageDescriptors(const vector<Image>& images, vector<Mat>& 
 
   for (size_t i = 0; i < images.size(); i++)
   {
-    string filename = bowImageDescriptorsDir + "/" + images[i].f_name + ".xml.gz";
+    string filename = bowImageDescriptorsDir + images[i].f_name.substr(4) + ".xml.gz";
     // uncomment the following line if want to read existing BowImageDescriptor
     //if (readBowImageDescriptor(filename, imageDescriptors[i])) {}
 
@@ -396,18 +398,13 @@ static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
   cout << "---------------------------------------------------------------" << endl;
 }
 
-static void computeGnuPlotOutput(const string& objClassName)
+void calcClassifierPrecRecall(const string& input_file, vector<float>& precision, vector<float>& recall, float& ap, bool outputRankingFile)
 {
-  vector<float> precision, recall;
-  float ap;
+  //read in classification results file
+  vector<string> res_image_codes;
+  vector<float> res_scores;
 
-  const string resultFile = vocData.getResultsFilename(objClassName, CV_VOC_TASK_CLASSIFICATION, CV_OBD_TEST);
-  const string plotFile = resultFile.substr(0, resultFile.size() - 4) + ".plt";
 
-  cout << "Calculating precision recall curve for class '" << objClassName << "'" << endl;
-  vocData.calcClassifierPrecRecall(resPath + plotsDir + "/" + resultFile, precision, recall, ap, true);
-  cout << "Outputting to GNUPlot file..." << endl;
-  vocData.savePrecRecallToGnuplot(resPath + plotsDir + "/" + plotFile, precision, recall, ap, objClassName, CV_VOC_PLOT_PNG);
 }
 
 void writeClassifierResultsFile(const string& obj_class, const vector<Image>& images, const vector<float>& scores, const bool overwrite_ifexists)
@@ -478,7 +475,5 @@ void test0() {
     // also calculating precision-recall etc.
     computeConfidences(svm, objClasses[classIdx],
       bowExtractor, featureDetector, images_test);
-    // Calculate precision/recall/ap and use GNUPlot to output to a pdf file
-    computeGnuPlotOutput(objClasses[classIdx]);
   }
 }

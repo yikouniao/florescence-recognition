@@ -1,10 +1,42 @@
 #include "SIFT.h"
 #include <fstream>
 
+#if defined WIN32 || defined _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#undef min
+#undef max
+#include "sys/types.h"
+#endif
+#include <sys/stat.h>
+
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace cv::ml;
 using namespace std;
+
+static void Help() {
+  cout << "";
+}
+
+static void makeDir(const string& dir)
+{
+#if defined WIN32 || defined _WIN32
+  CreateDirectoryA(dir.c_str(), 0);
+#else
+  mkdir(dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+#endif
+}
+
+static void makeUsedDirs()
+{
+  makeDir(svms_dir);
+  makeDir(bowImageDescriptorsDir);
+  for (size_t i = 0; i < CLASS_CNT; ++i) {
+    makeDir(bowImageDescriptorsDir + "/" + pic_dir[i]);
+  }
+  makeDir(plotsDir);
+}
 
 static void DivideImagesIntoTrainTest(vector<Image>& images_train,
                                       vector<Image>& images_test) {
@@ -430,6 +462,8 @@ void writeClassifierResultsFile(const string& obj_class, const vector<Image>& im
 }
 
 void test0() {
+  Help();
+  makeUsedDirs();
   Ptr<Feature2D> featureDetector = SIFT::create();
   Ptr<DescriptorExtractor> descExtractor = featureDetector;
   Ptr<BOWImgDescriptorExtractor> bowExtractor;

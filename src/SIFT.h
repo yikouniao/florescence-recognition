@@ -18,6 +18,10 @@ const std::string plotsDir = data_dir + "plots";
 const int vocab_size = 50;
 const size_t train_pic_num = 20;
 
+static void Help();
+static void makeDir(const std::string& dir);
+static void makeUsedDirs();
+
 enum Florescence {
   FULLY_BLOOMED, NON_BLOOMED, PARTIALLY_BLOOMED,
   CLASS_CNT, CLASS_UNKNOWN = CLASS_CNT

@@ -441,36 +441,61 @@ void writeClassifierResultsFile(const vector<Image>& images, vector<array<float,
   CV_Assert(images.size() == confidences.size());
 
   string output_file = results_dir;
-  size_t n_correct{0}, n_all{0};
   //output data to file
   ofstream result_file(output_file.c_str());
   if (result_file.is_open())
   {
-    array<size_t, CLASS_CNT> n_correct;
-    array<size_t, CLASS_CNT> n_all;
+    array<size_t, CLASS_CNT> n_correct{0};
+    array<size_t, CLASS_CNT> n_all{0};
     array<double, CLASS_CNT> accuracy;
+    size_t n_correct_total{0};
+    double accuracy_total;
+    result_file << "file name\t\t\tconfidences of ";
+    for (size_t i = 0; i < CLASS_CNT; ++i) {
+      result_file << obj_classes[i] << "\t";
+    }
+    result_file << "result\n";
     for (size_t i = 0; i < images.size(); ++i)
     {
-      result_file << images[i].f_name << " ";
+      result_file << images[i].f_name << "\t";
       for (size_t j = 0; j < CLASS_CNT; ++j) {
-        result_file << confidences[i][j] << " ";
+        result_file << confidences[i][j] << "\t";
       }
-      result_file << obj_classes[florescences[i]] << " " << endl;
+      result_file << obj_classes[florescences[i]] << "\n";
       if (florescences[i] == images[i].florescence) {
         ++n_correct[images[i].florescence];
       }
       ++n_all[images[i].florescence];
     }
     for (size_t i = 0; i < CLASS_CNT; ++i) {
+      n_correct_total += n_correct[i];
       accuracy[i] = static_cast<double>(n_correct[i]) / n_all[i];
-      cout << "Accuracy of class " << obj_classes[i] << "is:\t" << accuracy[i] << "\n";
-      result_file << "Accuracy of class " << obj_classes[i] << "is:\t" << accuracy[i] << "\n";
+      cout << "Accuracy of class " << obj_classes[i] << "is:\t" << accuracy[i]
+           << " (" << n_correct[i] << "/" << n_all[i] << ")\n";
+      result_file << "Accuracy of class " << obj_classes[i] << "is:\t" << accuracy[i]
+                  << " (" << n_correct[i] << "/" << n_all[i] << ")\n";
     }
+    accuracy_total = static_cast<double>(n_correct_total) / images.size();
+    cout << "Accuracy of all data is:\t" << accuracy_total
+         << " (" << n_correct_total << "/" << images.size() << ")\n";
+    result_file << "Accuracy of all data is:\t" << accuracy_total
+                << " (" << n_correct_total << "/" << images.size() << ")\n";
     result_file.close();
   }
   else {
     string err_msg = "could not open classifier results file '" + output_file + "' for writing. Before running for the first time, a 'results' subdirectory should be created within the VOC dataset base directory. e.g. if the VOC data is stored in /VOC/VOC2010 then the path /VOC/results must be created.";
     CV_Error(Error::StsError, err_msg.c_str());
+  }
+}
+
+void CalculateResult(vector<array<float, CLASS_CNT>>& confidences, vector<Florescence>& florescences) {
+  for (size_t i = 0; i < florescences.size(); ++i) {
+    size_t max_conf = 0;
+    for (size_t j = 1; j < CLASS_CNT; ++j) {
+      if (confidences[i][max_conf] < confidences[i][j])
+        max_conf = j;
+    }
+    florescences[i] = static_cast<Florescence>(max_conf);
   }
 }
 
@@ -526,15 +551,4 @@ void test0() {
   }
   CalculateResult(confidences, florescences);
   writeClassifierResultsFile(images_test, confidences, florescences);
-}
-
-void CalculateResult(vector<array<float, CLASS_CNT>>& confidences, vector<Florescence>& florescences) {
-  for (size_t i = 0; i < florescences.size(); ++i) {
-    size_t max_conf = 0;
-    for (size_t j = 1; j < CLASS_CNT; ++j) {
-      if (confidences[i][max_conf] < confidences[i][j])
-        max_conf = j;
-    }
-    florescences[i] = static_cast<Florescence>(max_conf);
-  }
 }

@@ -1,7 +1,6 @@
-//#include <Eigen/Dense>
 #include "SIFT.h"
 
 int main(int argc, char** argv) {
-  test0();
+  TrainTest();
   return 0;
 }

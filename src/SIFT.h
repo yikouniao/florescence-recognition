@@ -21,8 +21,8 @@ const int vocab_size = 50;
 const size_t train_pic_num = 20;
 
 static void Help();
-static void makeDir(const std::string& dir);
-static void makeUsedDirs();
+static void MakeDir(const std::string& dir);
+static void MakeUsedDirs();
 
 enum Florescence {
   FULLY_BLOOMED, NON_BLOOMED, PARTIALLY_BLOOMED,
@@ -44,9 +44,9 @@ static void SaveImages(const std::string& filename,
                        const std::vector<Image>& images_train,
                        const std::vector<Image>& images_test);
 static bool readVocabulary(const std::string& filename, cv::Mat& vocabulary);
-static bool writeVocabulary(const std::string& filename,
+static bool WriteVocabulary(const std::string& filename,
                             const cv::Mat& vocabulary);
-static cv::Mat trainVocabulary(
+static cv::Mat TrainVocabulary(
     const std::string& filename,
     const cv::Ptr<cv::FeatureDetector>& fdetector,
     const cv::Ptr<cv::DescriptorExtractor>& dextractor,
@@ -89,7 +89,7 @@ struct SVMTrainParamsExt
 static bool readBowImageDescriptor(const std::string& file, cv::Mat& bowImageDescriptor);
 static bool writeBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
 static void calculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
-  cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
+  cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
 static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bowImageDescriptors,
   std::vector<char>& objectPresent);
 static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bowImageDescriptors);
@@ -98,10 +98,10 @@ static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& 
   cv::ml::ParamGrid& p_grid, cv::ml::ParamGrid& nu_grid,
   cv::ml::ParamGrid& coef_grid, cv::ml::ParamGrid& degree_grid);
 static cv::Ptr<cv::ml::SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
-  cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
+  cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<char>& objectPresent);
 static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t classIdx,
-  cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
+  cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<std::array<float, CLASS_CNT>>& confidences);
 //Write classifier results file
 //-------------------------------------------
@@ -114,4 +114,4 @@ static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t cla
 void writeClassifierResultsFile(const size_t classIdx, const std::vector<Image>& images, const std::vector<float>& scores, const bool overwrite_ifexists, const std::vector<Florescence>& florescences);
 void calcClassifierPrecRecall();
 void CalculateResult(std::vector<std::array<float, CLASS_CNT>>& confidences, std::vector<Florescence>& florescences);
-void test0();
+void TrainTest();

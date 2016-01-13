@@ -19,7 +19,7 @@ static void Help() {
   cout << "";
 }
 
-static void makeDir(const string& dir)
+static void MakeDir(const string& dir)
 {
 #if defined WIN32 || defined _WIN32
   CreateDirectoryA(dir.c_str(), 0);
@@ -28,12 +28,12 @@ static void makeDir(const string& dir)
 #endif
 }
 
-static void makeUsedDirs()
+static void MakeUsedDirs()
 {
-  makeDir(svms_dir);
-  makeDir(bowImageDescriptorsDir);
+  MakeDir(svms_dir);
+  MakeDir(bowImageDescriptorsDir);
   for (size_t i = 0; i < CLASS_CNT; ++i) {
-    makeDir(bowImageDescriptorsDir + "/" + obj_classes[i]);
+    MakeDir(bowImageDescriptorsDir + "/" + obj_classes[i]);
   }
 }
 
@@ -81,22 +81,7 @@ static void SaveImages(const string& filename, const vector<Image>& images_train
   fs << "]"; // close sequence
 }
 
-static bool readVocabulary(const string& filename, Mat& vocabulary)
-{
-  cout << "Reading vocabulary...";
-  FileStorage fs(filename, FileStorage::READ);
-  // comment out following lines to re-generate vocabularies each time
-  // uncomment them to read existing vocabularies
-  //if (fs.isOpened())
-  //{
-  //  fs["vocabulary"] >> vocabulary;
-  //  cout << "done" << endl;
-  //  return true;
-  //}
-  return false;
-}
-
-static bool writeVocabulary(const string& filename, const Mat& vocabulary)
+static bool WriteVocabulary(const string& filename, const Mat& vocabulary)
 {
   cout << "Saving vocabulary..." << endl;
   FileStorage fs(filename, FileStorage::WRITE);
@@ -108,54 +93,50 @@ static bool writeVocabulary(const string& filename, const Mat& vocabulary)
   return false;
 }
 
-static Mat trainVocabulary(const string& filename,
+static Mat TrainVocabulary(const string& filename,
                            const Ptr<FeatureDetector>& fdetector,
                            const Ptr<DescriptorExtractor>& dextractor,
-                           vector<Image>& images)
-{
+                           vector<Image>& images) {
   Mat vocabulary;
-  if (!readVocabulary(filename, vocabulary))
+  CV_Assert(dextractor->descriptorType() == CV_32FC1);
+
+  cout << "Computing descriptors..." << endl;
+  TermCriteria terminate_criterion;
+  terminate_criterion.epsilon = FLT_EPSILON;
+  BOWKMeansTrainer bowTrainer(vocab_size, terminate_criterion, 3, KMEANS_PP_CENTERS);
+
+  size_t i = images.size();
+  while (i-- > 0)
   {
-    CV_Assert(dextractor->descriptorType() == CV_32FC1);
+    // compute the descriptors from train image.
+    Mat colorImage = imread(images[i].f_name);
+    if (!colorImage.data) {
+      cerr << images[i].f_name << "can not be read.\n";
+      exit(1);
+    }
+    vector<KeyPoint> imageKeypoints;
+    fdetector->detect(colorImage, imageKeypoints);
+    Mat imageDescriptors;
+    dextractor->compute(colorImage, imageKeypoints, imageDescriptors);
 
-    cout << "Computing descriptors..." << endl;
-    TermCriteria terminate_criterion;
-    terminate_criterion.epsilon = FLT_EPSILON;
-    BOWKMeansTrainer bowTrainer(vocab_size, terminate_criterion, 3, KMEANS_PP_CENTERS);
-
-    size_t i = images.size();
-    while (i-- > 0)
+    //check that there were descriptors calculated for the current image
+    if (!imageDescriptors.empty())
     {
-      // compute the descriptors from train image.
-      Mat colorImage = imread(images[i].f_name);
-      if (!colorImage.data) {
-        cerr << images[i].f_name << "can not be read.\n";
-        exit(1);
-      }
-      vector<KeyPoint> imageKeypoints;
-      fdetector->detect(colorImage, imageKeypoints);
-      Mat imageDescriptors;
-      dextractor->compute(colorImage, imageKeypoints, imageDescriptors);
-
-      //check that there were descriptors calculated for the current image
-      if (!imageDescriptors.empty())
+      for (int i = 0; i < imageDescriptors.rows; i++)
       {
-        for (int i = 0; i < imageDescriptors.rows; i++)
-        {
-            bowTrainer.add(imageDescriptors.row(i));
-        }
+          bowTrainer.add(imageDescriptors.row(i));
       }
     }
-    cout << "Actual descriptor count: " << bowTrainer.descriptorsCount() << endl;
+  }
+  cout << "Actual descriptor count: " << bowTrainer.descriptorsCount() << endl;
 
-    cout << "Training vocabulary..." << endl;
-    vocabulary = bowTrainer.cluster();
+  cout << "Training vocabulary..." << endl;
+  vocabulary = bowTrainer.cluster();
 
-    if (!writeVocabulary(filename, vocabulary))
-    {
-      cout << "Error: file " << filename << " can not be opened to write" << endl;
-      exit(-1);
-    }
+  if (!WriteVocabulary(filename, vocabulary))
+  {
+    cout << "Error: file " << filename << " can not be opened to write" << endl;
+    exit(-1);
   }
   return vocabulary;
 }
@@ -184,21 +165,19 @@ static bool writeBowImageDescriptor(const string& file, const Mat& bowImageDescr
 
 // Load in the bag of words vectors for a set of images, from file if possible
 static void calculateImageDescriptors(const vector<Image>& images, vector<Mat>& imageDescriptors,
-  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector)
+  Ptr<BOWImgDescriptorExtractor>& bow_extractor, const Ptr<FeatureDetector>& fdetector)
 {
-  CV_Assert(!bowExtractor->getVocabulary().empty());
+  CV_Assert(!bow_extractor->getVocabulary().empty());
   imageDescriptors.resize(images.size());
 
   for (size_t i = 0; i < images.size(); i++)
   {
     string filename = bowImageDescriptorsDir + images[i].f_name.substr(4) + ".xml.gz";
-    // uncomment the following line if want to read existing BowImageDescriptor
-    //if (readBowImageDescriptor(filename, imageDescriptors[i])) {}
 
     Mat colorImage = imread(images[i].f_name);
     vector<KeyPoint> keypoints;
     fdetector->detect(colorImage, keypoints);
-    bowExtractor->compute(colorImage, keypoints, imageDescriptors[i]);
+    bow_extractor->compute(colorImage, keypoints, imageDescriptors[i]);
     if (!imageDescriptors[i].empty())
     {
       if (!writeBowImageDescriptor(filename, imageDescriptors[i]))
@@ -260,7 +239,7 @@ static void setSVMTrainAutoParams(ParamGrid& c_grid, ParamGrid& gamma_grid,
 }
 
 static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const string& objClassName,
-  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector,
+  Ptr<BOWImgDescriptorExtractor>& bow_extractor, const Ptr<FeatureDetector>& fdetector,
   vector<Image>& images, vector<char>& objectPresent)
 {
   /* first check if a previously trained svm for the current class has been saved to file */
@@ -269,14 +248,6 @@ static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const 
 
   FileStorage fs(svmFilename, FileStorage::READ);
 
-  // uncomment the following lines to read existing svm data if available
-  //if (fs.isOpened())
-  //{
-  //  cout << "LOADING SVM CLASSIFIER FOR CLASS " << objClassName << "\n";
-  //  svm = StatModel::load<SVM>(svmFilename);
-  //  return svm;
-  //}
-
   cout << "TRAINING CLASSIFIER FOR CLASS " << objClassName << "\n";
   cout << "CALCULATING BOW VECTORS FOR TRAINING SET OF " << objClassName << "\n";
 
@@ -284,13 +255,13 @@ static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const 
   vector<Mat> bowImageDescriptors;
   
   // Compute the bag of words vector for each image in the training set.
-  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector);
+  calculateImageDescriptors(images, bowImageDescriptors, bow_extractor, fdetector);
 
   // Remove any images for which descriptors could not be calculated
   removeEmptyBowImageDescriptors(images, bowImageDescriptors, objectPresent);
 
   // Prepare the input matrices for SVM training.
-  Mat trainData((int)images.size(), bowExtractor->getVocabulary().rows, CV_32FC1);
+  Mat trainData((int)images.size(), bow_extractor->getVocabulary().rows, CV_32FC1);
   Mat responses((int)images.size(), 1, CV_32SC1);
 
   // Transfer bag of words vectors and responses across to the training data matrices
@@ -298,10 +269,10 @@ static Ptr<SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const 
   {
     // Transfer image descriptor (bag of words vector) to training data matrix
     Mat submat = trainData.row((int)imageIdx);
-    if (bowImageDescriptors[imageIdx].cols != bowExtractor->descriptorSize())
+    if (bowImageDescriptors[imageIdx].cols != bow_extractor->descriptorSize())
     {
       cout << "Error: computed bow image descriptor size " << bowImageDescriptors[imageIdx].cols
-        << " differs from vocabulary size" << bowExtractor->getVocabulary().cols << endl;
+        << " differs from vocabulary size" << bow_extractor->getVocabulary().cols << endl;
       exit(-1);
     }
     bowImageDescriptors[imageIdx].copyTo(submat);
@@ -334,7 +305,7 @@ void SVMTrainParamsExt::SVMTrainParamsExtFile() {
   {
     FileNode fn = paramsFS.root();
     FileNode currFn = fn;
-    currFn = fn["svmTrainParamsExt"];
+    currFn = fn["svm_train_params_ext"];
     read(currFn);
   }
   else
@@ -342,7 +313,7 @@ void SVMTrainParamsExt::SVMTrainParamsExtFile() {
     paramsFS.open(svmFilename, FileStorage::WRITE);
     if (paramsFS.isOpened())
     {
-      paramsFS << "svmTrainParamsExt" << "{";
+      paramsFS << "svm_train_params_ext" << "{";
       write(paramsFS);
       paramsFS << "}";
       paramsFS.release();
@@ -361,9 +332,6 @@ static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& b
   CV_Assert(!images.empty());
   for (int i = (int)images.size() - 1; i >= 0; i--)
   {
-    //bool res = bowImageDescriptors[i].empty();
-    //if (res)
-    //?????????????????
     if (bowImageDescriptors[i].empty())
     {
       cout << "Removing image " << images[i].f_name << " due to no descriptors..." << endl;
@@ -379,9 +347,6 @@ static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& b
   CV_Assert(!images.empty());
   for (int i = (int)images.size() - 1; i >= 0; i--)
   {
-    //bool res = bowImageDescriptors[i].empty();
-    //if (res)
-    //?????????????????
     if (bowImageDescriptors[i].empty())
     {
       cout << "Removing image " << images[i].f_name << " due to no descriptors..." << endl;
@@ -392,7 +357,7 @@ static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& b
 }
 
 static void computeConfidences(const Ptr<SVM>& svm, const size_t classIdx,
-  Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector,
+  Ptr<BOWImgDescriptorExtractor>& bow_extractor, const Ptr<FeatureDetector>& fdetector,
   vector<Image>& images, vector<array<float, CLASS_CNT>>& confidences)
 {
   cout << "*** CALCULATING CONFIDENCES FOR CLASS " << obj_classes[classIdx] << " ***" << endl;
@@ -401,7 +366,7 @@ static void computeConfidences(const Ptr<SVM>& svm, const size_t classIdx,
   vector<Mat> bowImageDescriptors;
 
   // Compute the bag of words vector for each image in the test set
-  calculateImageDescriptors(images, bowImageDescriptors, bowExtractor, fdetector);
+  calculateImageDescriptors(images, bowImageDescriptors, bow_extractor, fdetector);
   // Remove any images for which descriptors could not be calculated
   removeEmptyBowImageDescriptors(images, bowImageDescriptors);
 
@@ -499,37 +464,41 @@ void CalculateResult(vector<array<float, CLASS_CNT>>& confidences, vector<Flores
   }
 }
 
-void test0() {
+void TrainTest() {
   Help();
-  makeUsedDirs();
-  Ptr<Feature2D> featureDetector = SIFT::create();
-  Ptr<DescriptorExtractor> descExtractor = featureDetector;
-  Ptr<BOWImgDescriptorExtractor> bowExtractor;
-  if (!featureDetector || !descExtractor)
+  MakeUsedDirs();
+  Ptr<Feature2D> feature_detector = SIFT::create();
+  Ptr<DescriptorExtractor> desc_extractor = feature_detector;
+  Ptr<BOWImgDescriptorExtractor> bow_extractor;
+  if (!feature_detector || !desc_extractor)
   {
-    cout << "featureDetector or descExtractor was not created" << endl;
+    cout << "feature_detector or desc_extractor was not created" << endl;
     exit(1);
   }
   {
-    Ptr<DescriptorMatcher> descMatcher = DescriptorMatcher::create("BruteForce");
-    if (!featureDetector || !descExtractor || !descMatcher)
+    Ptr<DescriptorMatcher> desc_matcher =
+        DescriptorMatcher::create("BruteForce");
+    if (!feature_detector || !desc_extractor || !desc_matcher)
     {
-      cout << "descMatcher was not created" << endl;
+      cout << "desc_matcher was not created" << endl;
       exit(1);
     }
-    bowExtractor = makePtr<BOWImgDescriptorExtractor>(descExtractor, descMatcher);
+    bow_extractor =
+        makePtr<BOWImgDescriptorExtractor>(desc_extractor, desc_matcher);
   }
 
   vector<Image> images_train, images_test;
   InitImages(images_train, images_test);
   SaveImages(images_path, images_train, images_test);
-  // 1. Train visual word vocabulary if a pre-calculated vocabulary file doesn't already exist from previous run
-  Mat vocabulary = trainVocabulary(train_vocabulary_path, featureDetector, descExtractor, images_train);
-  bowExtractor->setVocabulary(vocabulary);
+
+  // 1. Train visual word vocabulary
+  Mat vocabulary = TrainVocabulary(train_vocabulary_path, feature_detector,
+                                   desc_extractor, images_train);
+  bow_extractor->setVocabulary(vocabulary);
 
   // 2. Train a classifier and run a sample query for each object class
-  SVMTrainParamsExt svmTrainParamsExt;
-  svmTrainParamsExt.SVMTrainParamsExtFile();
+  SVMTrainParamsExt svm_train_params_ext;
+  svm_train_params_ext.SVMTrainParamsExtFile();
   vector<array<float, CLASS_CNT>> confidences(images_test.size());
   vector<Florescence> florescences(images_test.size());
   for (size_t classIdx = 0; classIdx < obj_classes.size(); ++classIdx)
@@ -541,14 +510,15 @@ void test0() {
     }
 
     // Train a classifier on train dataset
-    Ptr<SVM> svm = trainSVMClassifier(svmTrainParamsExt, obj_classes[classIdx],
-      bowExtractor, featureDetector, images_train, object_present);
+    Ptr<SVM> svm = trainSVMClassifier(svm_train_params_ext, obj_classes[classIdx],
+      bow_extractor, feature_detector, images_train, object_present);
 
-    // Now use the classifier over all images on the test dataset and rank according to score order
-    // also calculating precision-recall etc.
-    computeConfidences(svm, classIdx,
-      bowExtractor, featureDetector, images_test, confidences);
+    // Use the classifier over all images on the test dataset
+    computeConfidences(svm, classIdx, bow_extractor,
+                       feature_detector, images_test, confidences);
   }
+
+  // 3. Calculate and save the result and precision-recall
   CalculateResult(confidences, florescences);
   writeClassifierResultsFile(images_test, confidences, florescences);
 }

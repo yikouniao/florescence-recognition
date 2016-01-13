@@ -33,9 +33,8 @@ static void makeUsedDirs()
   makeDir(svms_dir);
   makeDir(bowImageDescriptorsDir);
   for (size_t i = 0; i < CLASS_CNT; ++i) {
-    makeDir(bowImageDescriptorsDir + "/" + pic_dir[i]);
+    makeDir(bowImageDescriptorsDir + "/" + obj_classes[i]);
   }
-  makeDir(plotsDir);
 }
 
 static void DivideImagesIntoTrainTest(vector<Image>& images_train,
@@ -53,7 +52,7 @@ static void DivideImagesIntoTrainTest(vector<Image>& images_train,
 
 static void InitImages(vector<Image>& images_train, vector<Image>& images_test) {
   for (int i = FULLY_BLOOMED; i < CLASS_CNT; ++i) {
-    const string dir = data_dir + pic_dir[i];
+    const string dir = data_dir + obj_classes[i];
     vector<String> filenames;
     glob(dir, filenames); // read a sequence of files within a folder
     for (size_t j = 0; j < filenames.size(); ++j) {
@@ -392,12 +391,12 @@ static void removeEmptyBowImageDescriptors(vector<Image>& images, vector<Mat>& b
   }
 }
 
-static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
+static void computeConfidences(const Ptr<SVM>& svm, const size_t classIdx,
   Ptr<BOWImgDescriptorExtractor>& bowExtractor, const Ptr<FeatureDetector>& fdetector,
-  vector<Image>& images)
+  vector<Image>& images, vector<array<float, CLASS_CNT>>& confidences)
 {
-  cout << "*** CALCULATING CONFIDENCES FOR CLASS " << objClassName << " ***" << endl;
-  cout << "CALCULATING BOW VECTORS FOR TEST SET OF " << objClassName << "..." << endl;
+  cout << "*** CALCULATING CONFIDENCES FOR CLASS " << obj_classes[classIdx] << " ***" << endl;
+  cout << "CALCULATING BOW VECTORS FOR TEST SET OF " << obj_classes[classIdx] << "..." << endl;
   // Get classification ground truth for images in the test set
   vector<Mat> bowImageDescriptors;
 
@@ -407,30 +406,28 @@ static void computeConfidences(const Ptr<SVM>& svm, const string& objClassName,
   removeEmptyBowImageDescriptors(images, bowImageDescriptors);
 
   // Use the bag of words vectors to calculate classifier output for each image in test set
-  cout << "CALCULATING CONFIDENCE SCORES FOR CLASS " << objClassName << "..." << endl;
-  vector<float> confidences(images.size());
+  cout << "CALCULATING CONFIDENCE SCORES FOR CLASS " << obj_classes[classIdx] << "..." << endl;
   float signMul = 1.f;
   for (size_t imageIdx = 0; imageIdx < images.size(); imageIdx++)
   {
     if (imageIdx == 0)
     {
       // In the first iteration, determine the sign of the positive class
-      float classVal = confidences[imageIdx] = svm->predict(bowImageDescriptors[imageIdx], noArray(), 0);
-      float scoreVal = confidences[imageIdx] = svm->predict(bowImageDescriptors[imageIdx], noArray(), StatModel::RAW_OUTPUT);
+      float classVal = confidences[imageIdx][classIdx] = svm->predict(bowImageDescriptors[imageIdx], noArray(), 0);
+      float scoreVal = confidences[imageIdx][classIdx] = svm->predict(bowImageDescriptors[imageIdx], noArray(), StatModel::RAW_OUTPUT);
       signMul = (classVal < 0) == (scoreVal < 0) ? 1.f : -1.f;
     }
     // svm output of decision function
-    confidences[imageIdx] = signMul * svm->predict(bowImageDescriptors[imageIdx], noArray(), StatModel::RAW_OUTPUT);
+    confidences[imageIdx][classIdx] = signMul * svm->predict(bowImageDescriptors[imageIdx], noArray(), StatModel::RAW_OUTPUT);
   }
 
-  cout << "WRITING QUERY RESULTS TO VOC RESULTS FILE FOR CLASS " << objClassName << "..." << endl;
-  writeClassifierResultsFile(objClassName, images, confidences, true);
+  cout << "WRITING QUERY RESULTS TO VOC RESULTS FILE FOR CLASS " << obj_classes[classIdx] << "..." << endl;
 
-  cout << "DONE - " << objClassName << endl;
+  cout << "DONE - " << obj_classes[classIdx] << endl;
   cout << "---------------------------------------------------------------" << endl;
 }
 
-void calcClassifierPrecRecall(const string& input_file, vector<float>& precision, vector<float>& recall, float& ap, bool outputRankingFile)
+void calcClassifierPrecRecall()
 {
   //read in classification results file
   vector<string> res_image_codes;
@@ -439,19 +436,35 @@ void calcClassifierPrecRecall(const string& input_file, vector<float>& precision
 
 }
 
-void writeClassifierResultsFile(const string& obj_class, const vector<Image>& images, const vector<float>& scores, const bool overwrite_ifexists)
+void writeClassifierResultsFile(const vector<Image>& images, vector<array<float, CLASS_CNT>>& confidences, const vector<Florescence>& florescences)
 {
-  CV_Assert(images.size() == scores.size());
+  CV_Assert(images.size() == confidences.size());
 
-  string output_file = plotsDir + "/" + obj_class + ".txt";
-
+  string output_file = results_dir;
+  size_t n_correct{0}, n_all{0};
   //output data to file
   ofstream result_file(output_file.c_str());
   if (result_file.is_open())
   {
+    array<size_t, CLASS_CNT> n_correct;
+    array<size_t, CLASS_CNT> n_all;
+    array<double, CLASS_CNT> accuracy;
     for (size_t i = 0; i < images.size(); ++i)
     {
-      result_file << images[i].f_name << " " << scores[i] << endl;
+      result_file << images[i].f_name << " ";
+      for (size_t j = 0; j < CLASS_CNT; ++j) {
+        result_file << confidences[i][j] << " ";
+      }
+      result_file << obj_classes[florescences[i]] << " " << endl;
+      if (florescences[i] == images[i].florescence) {
+        ++n_correct[images[i].florescence];
+      }
+      ++n_all[images[i].florescence];
+    }
+    for (size_t i = 0; i < CLASS_CNT; ++i) {
+      accuracy[i] = static_cast<double>(n_correct[i]) / n_all[i];
+      cout << "Accuracy of class " << obj_classes[i] << "is:\t" << accuracy[i] << "\n";
+      result_file << "Accuracy of class " << obj_classes[i] << "is:\t" << accuracy[i] << "\n";
     }
     result_file.close();
   }
@@ -492,8 +505,9 @@ void test0() {
   // 2. Train a classifier and run a sample query for each object class
   SVMTrainParamsExt svmTrainParamsExt;
   svmTrainParamsExt.SVMTrainParamsExtFile();
-  const vector<string>& objClasses = pic_dir;
-  for (size_t classIdx = 0; classIdx < objClasses.size(); ++classIdx)
+  vector<array<float, CLASS_CNT>> confidences(images_test.size());
+  vector<Florescence> florescences(images_test.size());
+  for (size_t classIdx = 0; classIdx < obj_classes.size(); ++classIdx)
   {
     vector<char> object_present;
     // init objectPresent
@@ -502,12 +516,25 @@ void test0() {
     }
 
     // Train a classifier on train dataset
-    Ptr<SVM> svm = trainSVMClassifier(svmTrainParamsExt, objClasses[classIdx],
+    Ptr<SVM> svm = trainSVMClassifier(svmTrainParamsExt, obj_classes[classIdx],
       bowExtractor, featureDetector, images_train, object_present);
 
     // Now use the classifier over all images on the test dataset and rank according to score order
     // also calculating precision-recall etc.
-    computeConfidences(svm, objClasses[classIdx],
-      bowExtractor, featureDetector, images_test);
+    computeConfidences(svm, classIdx,
+      bowExtractor, featureDetector, images_test, confidences);
+  }
+  CalculateResult(confidences, florescences);
+  writeClassifierResultsFile(images_test, confidences, florescences);
+}
+
+void CalculateResult(vector<array<float, CLASS_CNT>>& confidences, vector<Florescence>& florescences) {
+  for (size_t i = 0; i < florescences.size(); ++i) {
+    size_t max_conf = 0;
+    for (size_t j = 1; j < CLASS_CNT; ++j) {
+      if (confidences[i][max_conf] < confidences[i][j])
+        max_conf = j;
+    }
+    florescences[i] = static_cast<Florescence>(max_conf);
   }
 }

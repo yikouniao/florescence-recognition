@@ -2,9 +2,11 @@
 #include "opencv2/opencv.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/xfeatures2d.hpp"
+#include <vector>
+#include <array>
 
 const std::string data_dir = "data/";
-const std::vector<std::string> pic_dir {
+const std::vector<std::string> obj_classes {
   "Fully-bloomed",
   "Non-bloomed",
   "Partially-bloomed"
@@ -13,7 +15,7 @@ const std::string images_path = data_dir + "images.xml";
 const std::string train_vocabulary_path = data_dir + "vocabulary.xml.gz";
 const std::string svms_dir = data_dir + "svms";
 const std::string bowImageDescriptorsDir = data_dir + "bowImageDescriptors";
-const std::string plotsDir = data_dir + "plots";
+const std::string results_dir = data_dir + "results.txt";
 
 const int vocab_size = 50;
 const size_t train_pic_num = 20;
@@ -98,9 +100,9 @@ static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& 
 static cv::Ptr<cv::ml::SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
   cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<char>& objectPresent);
-static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const std::string& objClassName,
+static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t classIdx,
   cv::Ptr<cv::BOWImgDescriptorExtractor>& bowExtractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
-  std::vector<Image>& images);
+  std::vector<Image>& images, std::vector<std::array<float, CLASS_CNT>>& confidences);
 //Write classifier results file
 //-------------------------------------------
 //INPUTS:
@@ -109,5 +111,7 @@ static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const std::strin
 // - scores             A corresponding array of confidence scores given a query
 //NOTES:
 // The result file path and filename are determined automatically using m_results_directory as a base
-void writeClassifierResultsFile(const std::string& obj_class, const std::vector<Image>& images, const std::vector<float>& scores, const bool overwrite_ifexists);
+void writeClassifierResultsFile(const size_t classIdx, const std::vector<Image>& images, const std::vector<float>& scores, const bool overwrite_ifexists, const std::vector<Florescence>& florescences);
+void calcClassifierPrecRecall();
+void CalculateResult(std::vector<std::array<float, CLASS_CNT>>& confidences, std::vector<Florescence>& florescences);
 void test0();

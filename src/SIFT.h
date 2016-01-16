@@ -14,7 +14,7 @@ const std::vector<std::string> obj_classes {
 const std::string images_path = data_dir + "images.xml";
 const std::string train_vocabulary_path = data_dir + "vocabulary.xml.gz";
 const std::string svms_dir = data_dir + "svms";
-const std::string bowImageDescriptorsDir = data_dir + "bowImageDescriptors";
+const std::string bowImageDescriptorsDir = data_dir + "bow_img_descrs";
 const std::string results_dir = data_dir + "results.txt";
 
 const int vocab_size = 50;
@@ -89,10 +89,10 @@ struct SVMTrainParamsExt
 static bool readBowImageDescriptor(const std::string& file, cv::Mat& bowImageDescriptor);
 static bool writeBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
 static void calculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
-  cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
-static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bowImageDescriptors,
+  const cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
+static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs,
   std::vector<char>& objectPresent);
-static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bowImageDescriptors);
+static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs);
 static void setSVMParams(cv::Ptr<cv::ml::SVM>& svm, const cv::Mat& responses, bool balanceClasses);
 static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& gamma_grid,
   cv::ml::ParamGrid& p_grid, cv::ml::ParamGrid& nu_grid,
@@ -100,8 +100,8 @@ static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& 
 static cv::Ptr<cv::ml::SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
   cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<char>& objectPresent);
-static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t classIdx,
-  cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
+static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t class_idx,
+  const cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<std::array<float, CLASS_CNT>>& confidences);
 //Write classifier results file
 //-------------------------------------------
@@ -111,7 +111,8 @@ static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t cla
 // - scores             A corresponding array of confidence scores given a query
 //NOTES:
 // The result file path and filename are determined automatically using m_results_directory as a base
-void writeClassifierResultsFile(const size_t classIdx, const std::vector<Image>& images, const std::vector<float>& scores, const bool overwrite_ifexists, const std::vector<Florescence>& florescences);
-void calcClassifierPrecRecall();
-void CalculateResult(std::vector<std::array<float, CLASS_CNT>>& confidences, std::vector<Florescence>& florescences);
+void writeClassifierResultsFile(const std::vector<Image>& images,
+  const std::vector<std::array<float, CLASS_CNT>>& confidences,
+  const std::vector<Florescence>& florescences);
+void CalculateResult(const std::vector<std::array<float, CLASS_CNT>>& confidences, std::vector<Florescence>& florescences);
 void TrainTest();

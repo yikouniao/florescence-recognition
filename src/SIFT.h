@@ -57,19 +57,19 @@ struct SVMTrainParamsExt
   SVMTrainParamsExt() : descPercent(1.f), targetRatio(0.4f), balanceClasses(true) {}
   SVMTrainParamsExt(float _descPercent, float _targetRatio, bool _balanceClasses) :
     descPercent(_descPercent), targetRatio(_targetRatio), balanceClasses(_balanceClasses) {}
-  void read(const cv::FileNode& fn)
+  void Read(const cv::FileNode& fn)
   {
     fn["descPercent"] >> descPercent;
     fn["targetRatio"] >> targetRatio;
     fn["balanceClasses"] >> balanceClasses;
   }
-  void write(cv::FileStorage& fs) const
+  void Write(cv::FileStorage& fs) const
   {
     fs << "descPercent" << descPercent;
     fs << "targetRatio" << targetRatio;
     fs << "balanceClasses" << balanceClasses;
   }
-  void print() const
+  void Print() const
   {
     std::cout << "descPercent: " << descPercent << "\n";
     std::cout << "targetRatio: " << targetRatio << "\n";
@@ -87,20 +87,20 @@ struct SVMTrainParamsExt
 };
 
 static bool readBowImageDescriptor(const std::string& file, cv::Mat& bowImageDescriptor);
-static bool writeBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
-static void calculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
+static bool WriteBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
+static void CalculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
   const cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
-static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs,
-  std::vector<char>& objectPresent);
-static void removeEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs);
+static void RemoveEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs,
+  std::vector<char>& obj_present);
+static void RemoveEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs);
 static void setSVMParams(cv::Ptr<cv::ml::SVM>& svm, const cv::Mat& responses, bool balanceClasses);
 static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& gamma_grid,
   cv::ml::ParamGrid& p_grid, cv::ml::ParamGrid& nu_grid,
   cv::ml::ParamGrid& coef_grid, cv::ml::ParamGrid& degree_grid);
-static cv::Ptr<cv::ml::SVM> trainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
+static cv::Ptr<cv::ml::SVM> TrainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
   cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
-  std::vector<Image>& images, std::vector<char>& objectPresent);
-static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t class_idx,
+  std::vector<Image>& images, std::vector<char>& obj_present);
+static void ComputeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t class_idx,
   const cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<std::array<float, CLASS_CNT>>& confidences);
 //Write classifier results file
@@ -111,7 +111,7 @@ static void computeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t cla
 // - scores             A corresponding array of confidence scores given a query
 //NOTES:
 // The result file path and filename are determined automatically using m_results_directory as a base
-void writeClassifierResultsFile(const std::vector<Image>& images,
+void WriteClassifierResultsFile(const std::vector<Image>& images,
   const std::vector<std::array<float, CLASS_CNT>>& confidences,
   const std::vector<Florescence>& florescences);
 void CalculateResult(const std::vector<std::array<float, CLASS_CNT>>& confidences, std::vector<Florescence>& florescences);

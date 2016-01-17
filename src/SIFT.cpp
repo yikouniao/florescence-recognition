@@ -474,6 +474,7 @@ void TrainTest() {
   Mat vocabulary = TrainVocabulary(train_vocabulary_path, feature_detector,
                                    desc_extractor, images_train);
   bow_extractor->setVocabulary(vocabulary);
+  cout << "\n\n";
 
   // 2. Train a classifier and run a sample query for each object class
   SVMTrainParamsExt svm_train_params_ext;

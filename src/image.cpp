@@ -21,6 +21,7 @@ void InitImages(vector<Image>& images_train, vector<Image>& images_test) {
     // Randomly pick images for training
     CV_Assert(filenames.size() > train_pic_num_each_class);
     RNG& rng = theRNG();
+    rng.state = getTickCount();
     size_t j = train_pic_num_each_class;
     while (j-- > 0) {
       int rand_img_idx = rng((unsigned)filenames.size());

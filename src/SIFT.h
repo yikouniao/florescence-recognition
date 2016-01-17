@@ -4,45 +4,14 @@
 #include "opencv2/xfeatures2d.hpp"
 #include <vector>
 #include <array>
-
-const std::string data_dir = "data/";
-const std::vector<std::string> obj_classes {
-  "Fully-bloomed",
-  "Non-bloomed",
-  "Partially-bloomed"
-};
-const std::string images_path = data_dir + "images.xml";
-const std::string train_vocabulary_path = data_dir + "vocabulary.xml.gz";
-const std::string svms_dir = data_dir + "svms";
-const std::string bow_img_descriptors_dir = data_dir + "bow_img_descrs";
-const std::string results_dir = data_dir + "results.txt";
+#include "image.h"
+#include "florescence.h"
+#include "directory.h"
 
 const int vocab_size = 50;
-const size_t train_pic_num = 20;
 
 static void Help();
-static void MakeDir(const std::string& dir);
-static void MakeUsedDirs();
 
-enum Florescence {
-  FULLY_BLOOMED, NON_BLOOMED, PARTIALLY_BLOOMED,
-  CLASS_CNT, CLASS_UNKNOWN = CLASS_CNT
-};
-
-struct Image {
-  Image() : f_name(""), florescence(CLASS_UNKNOWN) {}
-  Image(std::string p_f, Florescence p_florescence)
-      : f_name(p_f), florescence(p_florescence) {}
-  std::string f_name; // file name
-  Florescence florescence; // a flag for different classes
-};
-
-static void DivideImagesIntoTrainTest(std::vector<Image>& images_train,
-  std::vector<Image>& images_test);
-static void InitImages(std::vector<Image>& images_train, std::vector<Image>& images_test);
-static void SaveImages(const std::string& filename,
-                       const std::vector<Image>& images_train,
-                       const std::vector<Image>& images_test);
 static bool readVocabulary(const std::string& filename, cv::Mat& vocabulary);
 static bool WriteVocabulary(const std::string& filename,
                             const cv::Mat& vocabulary);

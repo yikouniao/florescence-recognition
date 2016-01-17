@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <opencv_storage>
-<svmTrainParamsExt>
-  <descPercent>1.</descPercent>
-  <targetRatio>4.0000000596046448e-01</targetRatio>
-  <balanceClasses>1</balanceClasses></svmTrainParamsExt>
+<svm_train_params_ext>
+  <desc_percent>1.</desc_percent>
+  <target_ratio>4.0000000596046448e-01</target_ratio>
+  <balance_classes>1</balance_classes></svm_train_params_ext>
 </opencv_storage>

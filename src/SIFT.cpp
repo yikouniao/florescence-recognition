@@ -1,15 +1,6 @@
 #include "SIFT.h"
 #include <fstream>
 
-#if defined WIN32 || defined _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef min
-#undef max
-#include "sys/types.h"
-#endif
-#include <sys/stat.h>
-
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace cv::ml;
@@ -17,79 +8,6 @@ using namespace std;
 
 static void Help() {
   cout << "";
-}
-
-static void MakeDir(const string& dir) {
-#if defined WIN32 || defined _WIN32
-  CreateDirectoryA(dir.c_str(), 0);
-#else
-  mkdir(dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-#endif
-}
-
-static void MakeUsedDirs() {
-  MakeDir(svms_dir);
-  MakeDir(bow_img_descriptors_dir);
-  for (size_t i = 0; i < CLASS_CNT; ++i) {
-    MakeDir(bow_img_descriptors_dir + "/" + obj_classes[i]);
-  }
-}
-
-// Initialize the vector of train images and test images
-// INPUT&OUTPUT:
-//   images_train: images for training
-//   images_test: images for testing
-static void InitImages(vector<Image>& images_train, vector<Image>& images_test) {
-  // First read in all images and set them as test images
-  for (int i = FULLY_BLOOMED; i < CLASS_CNT; ++i) {
-    const string dir = data_dir + obj_classes[i];
-    vector<String> filenames;
-    glob(dir, filenames); // Read a sequence of files within a folder
-    for (size_t j = 0; j < filenames.size(); ++j) {
-      images_test.push_back({filenames[j], static_cast<Florescence>(i)});
-    }
-  }
-  // Then move some test images into train set
-  DivideImagesIntoTrainTest(images_train, images_test);
-}
-
-// Divide all images into train and test set
-// INPUT&OUTPUT:
-//   images_train: images for training
-//   images_test: images for testing
-static void DivideImagesIntoTrainTest(vector<Image>& images_train,
-                                      vector<Image>& images_test) {
-  RNG& rng = theRNG();
-  size_t i = train_pic_num;
-  while (i-- > 0) {
-    // Randomly pick an image from the dataset for training
-    int randImgIdx = rng((unsigned)images_test.size());
-    images_train.push_back(images_test[randImgIdx]);
-    images_test.erase(images_test.begin() + randImgIdx);
-  }
-}
-
-// Save all train/test Image into file
-// INPUT:
-//   filename: vocabulary file name
-//   images_train: images for training
-//   images_test: images for testing
-static void SaveImages(const string& filename, const vector<Image>& images_train,
-                       const vector<Image>& images_test) {
-  cout << "Saving images...\n";
-  FileStorage fs(filename, FileStorage::WRITE);
-  fs << "strings" << "["; // text - string sequence
-  fs << "images for training";
-  for (const auto& e : images_train) {
-      fs << e.f_name;
-  }
-  fs << "]"; // close sequence
-  fs << "strings" << "["; // text - string sequence
-  fs << "images for testing"; // text - string sequence
-  for (const auto& e : images_test) {
-    fs << e.f_name;
-  }
-  fs << "]"; // close sequence
 }
 
 // Write vocabulary
@@ -344,7 +262,7 @@ static Ptr<SVM> TrainSVMClassifier(
 
   svm->trainAuto(TrainData::create(train_data, ROW_SAMPLE, responses), 10,
                  c_grid, gamma_grid, p_grid, nu_grid, coef_grid, degree_grid);
-  cout << "SVM Training for class " << class_name << " COMPLETED.\n";
+  cout << "SVM Training for class " << class_name << " completed.\n";
 
   svm->save(svm_file_name);
   cout << "saved classifier to file.\n";
@@ -408,7 +326,7 @@ static void ComputeConfidences(const Ptr<SVM>& svm, const size_t class_idx,
         = sign_mul * svm->predict(bow_img_descrs[img_idx], noArray(),
                                   StatModel::RAW_OUTPUT);
   }
-  cout << obj_classes[class_idx] << "DONE.\n\n\n";
+  cout << obj_classes[class_idx] << " DONE.\n\n\n";
 }
 
 // Remove empty BOW image descriptors
@@ -485,7 +403,7 @@ void WriteClassifierResultsFile(const vector<Image>& images,
     size_t n_correct_total{0};
     double accuracy_total;
     
-    result_file << "file name     confidences of ";
+    result_file << "file name                      confidences of ";
     for (size_t i = 0; i < CLASS_CNT; ++i) {
       result_file << obj_classes[i] << " ";
     }

@@ -14,7 +14,7 @@ const std::vector<std::string> obj_classes {
 const std::string images_path = data_dir + "images.xml";
 const std::string train_vocabulary_path = data_dir + "vocabulary.xml.gz";
 const std::string svms_dir = data_dir + "svms";
-const std::string bowImageDescriptorsDir = data_dir + "bow_img_descrs";
+const std::string bow_img_descriptors_dir = data_dir + "bow_img_descrs";
 const std::string results_dir = data_dir + "results.txt";
 
 const int vocab_size = 50;
@@ -50,54 +50,54 @@ static cv::Mat TrainVocabulary(
     const std::string& filename,
     const cv::Ptr<cv::FeatureDetector>& fdetector,
     const cv::Ptr<cv::DescriptorExtractor>& dextractor,
-    std::vector<Image>& images);
+    const std::vector<Image>& images);
 
 struct SVMTrainParamsExt
 {
-  SVMTrainParamsExt() : descPercent(1.f), targetRatio(0.4f), balanceClasses(true) {}
+  SVMTrainParamsExt() : desc_percent(1.f), target_ratio(0.4f), balance_classes(true) {}
   SVMTrainParamsExt(float _descPercent, float _targetRatio, bool _balanceClasses) :
-    descPercent(_descPercent), targetRatio(_targetRatio), balanceClasses(_balanceClasses) {}
+    desc_percent(_descPercent), target_ratio(_targetRatio), balance_classes(_balanceClasses) {}
   void Read(const cv::FileNode& fn)
   {
-    fn["descPercent"] >> descPercent;
-    fn["targetRatio"] >> targetRatio;
-    fn["balanceClasses"] >> balanceClasses;
+    fn["desc_percent"] >> desc_percent;
+    fn["target_ratio"] >> target_ratio;
+    fn["balance_classes"] >> balance_classes;
   }
   void Write(cv::FileStorage& fs) const
   {
-    fs << "descPercent" << descPercent;
-    fs << "targetRatio" << targetRatio;
-    fs << "balanceClasses" << balanceClasses;
+    fs << "desc_percent" << desc_percent;
+    fs << "target_ratio" << target_ratio;
+    fs << "balance_classes" << balance_classes;
   }
   void Print() const
   {
-    std::cout << "descPercent: " << descPercent << "\n";
-    std::cout << "targetRatio: " << targetRatio << "\n";
-    std::cout << "balanceClasses: " << balanceClasses << "\n";
+    std::cout << "desc_percent: " << desc_percent << "\n";
+    std::cout << "target_ratio: " << target_ratio << "\n";
+    std::cout << "balance_classes: " << balance_classes << "\n";
   }
   // If the file storing parameters of SVM trainer, read it, else creat it.
   void SVMTrainParamsExtFile();
   // Percentage of extracted descriptors to use for training.
-  float descPercent;
+  float desc_percent;
   // Try to get this ratio of positive to negative samples (minimum).
-  float targetRatio;
+  float target_ratio;
   // Balance class weights by number of samples in each
   // (if true cSvmTrainTargetRatio is ignored).
-  bool balanceClasses;
+  bool balance_classes;
 };
 
-static bool readBowImageDescriptor(const std::string& file, cv::Mat& bowImageDescriptor);
-static bool WriteBowImageDescriptor(const std::string& file, const cv::Mat& bowImageDescriptor);
-static void CalculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& imageDescriptors,
+static bool ReadBowImgDescriptor(const std::string& file, cv::Mat& bow_img_descriptor);
+static bool WriteBowImageDescriptor(const std::string& file, const cv::Mat& bow_img_descriptor);
+static void CalculateImageDescriptors(const std::vector<Image>& images, std::vector<cv::Mat>& img_descriptors,
   const cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector);
 static void RemoveEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs,
   std::vector<char>& obj_present);
 static void RemoveEmptyBowImageDescriptors(std::vector<Image>& images, std::vector<cv::Mat>& bow_img_descrs);
-static void setSVMParams(cv::Ptr<cv::ml::SVM>& svm, const cv::Mat& responses, bool balanceClasses);
-static void setSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& gamma_grid,
+static void setSVMParams(cv::Ptr<cv::ml::SVM>& svm, const cv::Mat& responses, bool balance_classes);
+static void SetSVMTrainAutoParams(cv::ml::ParamGrid& c_grid, cv::ml::ParamGrid& gamma_grid,
   cv::ml::ParamGrid& p_grid, cv::ml::ParamGrid& nu_grid,
   cv::ml::ParamGrid& coef_grid, cv::ml::ParamGrid& degree_grid);
-static cv::Ptr<cv::ml::SVM> TrainSVMClassifier(const SVMTrainParamsExt& svmParamsExt, const std::string& objClassName,
+static cv::Ptr<cv::ml::SVM> TrainSVMClassifier(const SVMTrainParamsExt& svm_params_ext, const std::string& class_name,
   cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor, const cv::Ptr<cv::FeatureDetector>& fdetector,
   std::vector<Image>& images, std::vector<char>& obj_present);
 static void ComputeConfidences(const cv::Ptr<cv::ml::SVM>& svm, const size_t class_idx,

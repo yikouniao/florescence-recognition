@@ -100,13 +100,13 @@ Ptr<SVM> TrainSVMClassifier(
     Ptr<BOWImgDescriptorExtractor>& bow_extractor,
     const Ptr<FeatureDetector>& fdetector, vector<Image>& images,
     vector<char>& obj_present) {
-  // first check if a previously trained svm for the current class has been saved to file
   string svm_file_name = svms_dir + "/" + class_name + ".xml.gz";
   Ptr<SVM> svm;
   FileStorage fs(svm_file_name, FileStorage::READ);
 
-  cout << "Training classifier for class " << class_name << "\n";
-  cout << "Calculating BOW vectors for training set of " << class_name << "\n";
+  cout << "Training classifier for class " << class_name << "...\n";
+  cout << "Calculating BoW vectors for training set of "
+       << class_name << "...\n";
   vector<Mat> bow_img_descrs;
   
   // Compute the bag of words vector for each image in the training set.

@@ -110,7 +110,10 @@ void WriteClassifierResultsFile(const vector<Image>& images,
 }
 
 // Train and test dataset
-void TrainTest() {
+// INPUT&OUTPUT:
+//   images_train, images_test: vectors of train data and test data
+//                              some images may be erased due to no descriptor
+void TrainTest(vector<Image>& images_train, vector<Image>& images_test) {
   Help();
   MakeUsedDirs();
   Ptr<Feature2D> feature_detector = SIFT::create();
@@ -130,10 +133,6 @@ void TrainTest() {
     bow_extractor =
         makePtr<BOWImgDescriptorExtractor>(desc_extractor, desc_matcher);
   }
-
-  vector<Image> images_train, images_test;
-  InitImages(images_train, images_test);
-  SaveImages(images_path, images_train, images_test);
 
   // 1. Train visual word vocabulary
   Mat vocabulary = TrainVocabulary(train_vocabulary_path, feature_detector,

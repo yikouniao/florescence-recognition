@@ -20,4 +20,5 @@ void WriteClassifierResultsFile(
 void CalculateResult(
     const std::vector<std::array<float, CLASS_CNT>>& confidences,
     std::vector<Florescence>& florescences);
-void TrainTest();
+void TrainTest(std::vector<Image>& images_train,
+               std::vector<Image>& images_test);

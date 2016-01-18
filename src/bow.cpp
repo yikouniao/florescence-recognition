@@ -26,7 +26,8 @@ bool ReadBowImgDescriptor(const string& file, Mat& bow_img_descriptor) {
 // INPUT:
 //   file: file name
 //   bow_img_descriptor: BOW descriptor
-bool WriteBowImgDescriptor(const string& file, const Mat& bow_img_descriptor) {
+bool WriteBowImgDescriptor(const string& file,
+                           const Mat& bow_img_descriptor) {
   FileStorage fs(file, FileStorage::WRITE);
   if (fs.isOpened()) {
     fs << "imageDescriptor" << bow_img_descriptor;
@@ -84,13 +85,16 @@ void ComputeConfidences(const Ptr<SVM>& svm, const size_t class_idx,
   vector<Mat> bow_img_descrs;// BOW image descriptors
 
   // Compute the bag of words vector for each image in the test set
-  cout << "Calculating BOW vectors for TEST set of " << obj_classes[class_idx] << " .\n";
+  cout << "Calculating BoW vectors for testing set of "
+       << obj_classes[class_idx] << "...\n";
   CalculateImageDescriptors(images, bow_img_descrs, bow_extractor, fdetector);
   // Remove any images for which descriptors could not be calculated
   RemoveEmptyBowImageDescriptors(images, bow_img_descrs);
 
-  // Use the bag of words vectors to calculate classifier output for each image in test set
-  cout << "Calculating confidences for class " << obj_classes[class_idx] << " .\n";
+  // Use the bag of words vectors to calculate classifier output
+  // for each image in test set
+  cout << "Calculating confidences for class "
+       << obj_classes[class_idx] << "...\n";
   float sign_mul = 1.f;
   for (size_t img_idx = 0; img_idx < images.size(); img_idx++) {
     if (img_idx == 0) {

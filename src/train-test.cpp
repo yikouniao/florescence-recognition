@@ -42,11 +42,13 @@ void WriteClassifierResultsFile(const vector<Image>& images,
   // Output data to file
   ofstream result_file(output_file.c_str());
   if (result_file.is_open()) {
-    array<size_t, CLASS_CNT> n_correct{0};
-    array<size_t, CLASS_CNT> n_all{0};
-    array<double, CLASS_CNT> accuracy;
-    size_t n_correct_total{0};
-    double accuracy_total;
+    array<size_t, CLASS_CNT> n_tp{0};
+    array<size_t, CLASS_CNT> n_relevant{0};
+    array<double, CLASS_CNT> recall;
+    array<size_t, CLASS_CNT> n_selected{0};
+    array<double, CLASS_CNT> precision;
+    size_t n_tp_total{0};
+    double precision_recall_total;
     
     result_file << "file name                      confidences of ";
     for (size_t i = 0; i < CLASS_CNT; ++i) {
@@ -61,30 +63,48 @@ void WriteClassifierResultsFile(const vector<Image>& images,
       }
       result_file << obj_classes[florescences[i]] << "\n";
       // Prepare for calculation of precision and recall
+      // Relevant elements include true positives(TP) and false negatives(FN)
+      // Seleted elements include true positives and false positives(FP)
       if (florescences[i] == images[i].florescence) {
-        ++n_correct[images[i].florescence];
+        ++n_tp[images[i].florescence];
       }
-      ++n_all[images[i].florescence];
+      ++n_relevant[images[i].florescence];
+      ++n_selected[florescences[i]];
     }
-    // Calculate precision and recall for each class, write into file
+
+    // Calculate precision for each class, write into file
+    // recall = TP / (TP + FN) = TP / relevant elements
     for (size_t i = 0; i < CLASS_CNT; ++i) {
-      n_correct_total += n_correct[i];
-      accuracy[i] = static_cast<double>(n_correct[i]) / n_all[i];
-      cout << "Accuracy of class " << obj_classes[i] << "is: " << accuracy[i]
-           << " (" << n_correct[i] << "/" << n_all[i] << ")\n";
-      result_file << "recall of class " << obj_classes[i] << "is: "
-                  << accuracy[i] << " (" << n_correct[i] << "/" << n_all[i]
+      n_tp_total += n_tp[i];
+      recall[i] = static_cast<double>(n_tp[i]) / n_relevant[i];
+      cout << "Recall of class " << obj_classes[i] << "is: " << recall[i]
+           << " (" << n_tp[i] << "/" << n_relevant[i] << ")\n";
+      result_file << "Recall of class " << obj_classes[i] << "is: "
+                  << recall[i] << " (" << n_tp[i] << "/" << n_relevant[i]
                   << ")\n";
     }
+
+    // Calculate recall for each class, write into file
+    // precision = TP / (TP + FP) = TP / seleted elements
+    for (size_t i = 0; i < CLASS_CNT; ++i) {
+      precision[i] = static_cast<double>(n_tp[i]) / n_selected[i];
+      cout << "Precision of class " << obj_classes[i] << "is: " << precision[i]
+           << " (" << n_tp[i] << "/" << n_selected[i] << ")\n";
+      result_file << "Precision of class " << obj_classes[i] << "is: "
+                  << precision[i] << " (" << n_tp[i] << "/" << n_selected[i]
+                  << ")\n";
+    }
+
     // Calculate total precision and recall, write into file
-    accuracy_total = static_cast<double>(n_correct_total) / images.size();
-    cout << "Accuracy of all data is: " << accuracy_total
-         << " (" << n_correct_total << "/" << images.size() << ")\n";
-    result_file << "Accuracy of all data is: " << accuracy_total
-         << " (" << n_correct_total << "/" << images.size() << ")\n";
+    precision_recall_total = static_cast<double>(n_tp_total) / images.size();
+    cout << "Precision and recall of all data is: " << precision_recall_total
+         << " (" << n_tp_total << "/" << images.size() << ")\n";
+    result_file << "Precision and recall of all data is: "
+                << precision_recall_total << " (" << n_tp_total << "/"
+                << images.size() << ")\n";
     result_file.close();
   } else {
-    string err_msg = "could not open " + output_file + "\n";
+    string err_msg = "can not open " + output_file + "\n";
     CV_Error(Error::StsError, err_msg.c_str());
   }
 }

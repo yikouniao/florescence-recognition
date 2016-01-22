@@ -2,7 +2,7 @@
 #include "opencv2/opencv.hpp"
 #include "image.h"
 
-const int vocab_size = 20;
+const int vocab_size = 33;
 
 bool WriteVocabulary(const std::string& filename,
                      const cv::Mat& vocabulary);

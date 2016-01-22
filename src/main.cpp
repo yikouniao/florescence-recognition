@@ -9,5 +9,6 @@ int main(int argc, char** argv) {
   SaveImages(images_path, images_train, images_test);
 
   TrainTest(images_train, images_test);
+
   return 0;
 }

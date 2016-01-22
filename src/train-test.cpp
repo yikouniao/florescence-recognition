@@ -6,10 +6,6 @@ using namespace cv::xfeatures2d;
 using namespace cv::ml;
 using namespace std;
 
-static void Help() {
-  cout << "";
-}
-
 // Calculate the classification result
 // INPUT:
 //   confidences: confidences of each object for all classes
@@ -114,7 +110,6 @@ void WriteClassifierResultsFile(const vector<Image>& images,
 //   images_train, images_test: vectors of train data and test data
 //                              some images may be erased due to no descriptor
 void TrainTest(vector<Image>& images_train, vector<Image>& images_test) {
-  Help();
   MakeUsedDirs();
   Ptr<Feature2D> feature_detector = SIFT::create();
   Ptr<DescriptorExtractor> desc_extractor = feature_detector;

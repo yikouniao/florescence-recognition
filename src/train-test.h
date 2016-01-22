@@ -11,8 +11,6 @@
 #include "svm.h"
 #include "bow.h"
 
-static void Help();
-
 void WriteClassifierResultsFile(
     const std::vector<Image>& images,
     const std::vector<std::array<float, CLASS_CNT>>& confidences,

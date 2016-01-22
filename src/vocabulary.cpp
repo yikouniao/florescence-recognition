@@ -44,12 +44,7 @@ Mat TrainVocabulary(const string& filename,
   while (i-- > 0) {
     // Compute the descriptors from train image.
     Mat color_img = imread(images[i].f_name);
-    namedWindow("src");
-    imshow("src", color_img);
-    RemoveGreen(color_img);
-    namedWindow("dst");
-    imshow("dst", color_img);
-    waitKey(0);
+    ImgPreProc(color_img);
     if (!color_img.data) {
       cerr << images[i].f_name << "can not be read.\n";
       exit(1);

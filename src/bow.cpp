@@ -56,7 +56,7 @@ void CalculateImageDescriptors(
                           images[i].f_name.substr(4) + ".xml.gz";
 
     Mat color_img = imread(images[i].f_name);
-    RemoveGreen(color_img);
+    ImgPreProc(color_img);
     vector<KeyPoint> keypoints;
     fdetector->detect(color_img, keypoints);
     bow_extractor->compute(color_img, keypoints, img_descriptors[i]);

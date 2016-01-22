@@ -92,14 +92,15 @@ void SetSVMTrainAutoParams(ParamGrid& c_grid, ParamGrid& gamma_grid,
 //   images: a vector of Image for training
 //   obj_present: an array of bools specifying whether the object
 //                defined by obj_classes is present in each image or not
-//bow_extractor?????????????????????
+//   bow_extractor: BoW image descriptor extractor
+//   confidences: confidences of each object for all classes
 // RETURN:
 //   svm
 Ptr<SVM> TrainSVMClassifier(
     const SVMTrainParamsExt& svm_params_ext, const string& class_name,
-    Ptr<BOWImgDescriptorExtractor>& bow_extractor,
+    const Ptr<BOWImgDescriptorExtractor>& bow_extractor,
     const Ptr<FeatureDetector>& fdetector, vector<Image>& images,
-    vector<char>& obj_present) {
+    vector<char>& obj_present, vector<array<float, CLASS_CNT>>& confidences) {
   string svm_file_name = svms_dir + "/" + class_name + ".xml.gz";
   Ptr<SVM> svm;
   FileStorage fs(svm_file_name, FileStorage::READ);
@@ -113,7 +114,8 @@ Ptr<SVM> TrainSVMClassifier(
   CalculateImageDescriptors(images, bow_img_descrs, bow_extractor, fdetector);
 
   // Remove any images for which descriptors could not be calculated
-  RemoveEmptyBowImageDescriptors(images, bow_img_descrs, obj_present);
+  RemoveEmptyBowImageDescriptors(images, bow_img_descrs, obj_present,
+                                 confidences);
 
   // Prepare the input matrices for SVM training.
   Mat train_data((int)images.size(),

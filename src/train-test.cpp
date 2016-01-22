@@ -160,7 +160,7 @@ void TrainTest(vector<Image>& images_train, vector<Image>& images_test) {
     Ptr<SVM> svm = TrainSVMClassifier(
                        svm_train_params_ext, obj_classes[class_idx],
                        bow_extractor, feature_detector, images_train,
-                       obj_present);
+                       obj_present, confidences);
 
     // Use the classifier over all images on the test dataset
     ComputeConfidences(svm, class_idx, bow_extractor,

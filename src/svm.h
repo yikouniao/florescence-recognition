@@ -43,6 +43,7 @@ void SetSVMTrainAutoParams(
     cv::ml::ParamGrid& coef_grid, cv::ml::ParamGrid& degree_grid);
 cv::Ptr<cv::ml::SVM> TrainSVMClassifier(
     const SVMTrainParamsExt& svm_params_ext, const std::string& class_name,
-    cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor,
+    const cv::Ptr<cv::BOWImgDescriptorExtractor>& bow_extractor,
     const cv::Ptr<cv::FeatureDetector>& fdetector, std::vector<Image>& images,
-    std::vector<char>& obj_present);
+    std::vector<char>& obj_present,
+    std::vector<std::array<float, CLASS_CNT>>& confidences);

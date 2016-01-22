@@ -1,5 +1,6 @@
 #include "bow.h"
 #include "directory.h"
+#include "filter.h"
 
 using namespace cv;
 using namespace cv::xfeatures2d;
@@ -55,6 +56,7 @@ void CalculateImageDescriptors(
                           images[i].f_name.substr(4) + ".xml.gz";
 
     Mat color_img = imread(images[i].f_name);
+    RemoveGreen(color_img);
     vector<KeyPoint> keypoints;
     fdetector->detect(color_img, keypoints);
     bow_extractor->compute(color_img, keypoints, img_descriptors[i]);
@@ -89,7 +91,7 @@ void ComputeConfidences(const Ptr<SVM>& svm, const size_t class_idx,
        << obj_classes[class_idx] << "...\n";
   CalculateImageDescriptors(images, bow_img_descrs, bow_extractor, fdetector);
   // Remove any images for which descriptors could not be calculated
-  RemoveEmptyBowImageDescriptors(images, bow_img_descrs);
+  RemoveEmptyBowImageDescriptors(images, bow_img_descrs, confidences);
 
   // Use the bag of words vectors to calculate classifier output
   // for each image in test set
@@ -119,10 +121,11 @@ void ComputeConfidences(const Ptr<SVM>& svm, const size_t class_idx,
 //   images: a vector of Image to be classified
 //   bow_img_descrs: BOW image descriptors
 //   obj_present: An array of bools specifying whether the object
-//                   defined by obj_classes is present in each image or not
-void RemoveEmptyBowImageDescriptors(vector<Image>& images,
-                                    vector<Mat>& bow_img_descrs,
-                                    vector<char>& obj_present) {
+//                defined by obj_classes is present in each image or not
+//   confidences: confidences of each object for all classes
+void RemoveEmptyBowImageDescriptors(
+  vector<Image>& images, vector<Mat>& bow_img_descrs,
+  vector<char>& obj_present, vector<array<float, CLASS_CNT>>& confidences) {
   CV_Assert(!images.empty());
   for (int i = static_cast<int>(images.size()) - 1; i >= 0; --i) {
     if (bow_img_descrs[i].empty()) {
@@ -130,6 +133,7 @@ void RemoveEmptyBowImageDescriptors(vector<Image>& images,
       images.erase(images.begin() + i);
       bow_img_descrs.erase(bow_img_descrs.begin() + i);
       obj_present.erase(obj_present.begin() + i);
+      confidences.erase(confidences.begin() + i);
     }
   }
 }
@@ -138,14 +142,17 @@ void RemoveEmptyBowImageDescriptors(vector<Image>& images,
 // INPUT&OUTPUT:
 //   images: a vector of Image to be classified
 //   bow_img_descrs: BOW image descriptors
-void RemoveEmptyBowImageDescriptors(vector<Image>& images,
-                                    vector<Mat>& bow_img_descrs) {
+//   confidences: confidences of each object for all classes
+void RemoveEmptyBowImageDescriptors(
+    vector<Image>& images, vector<Mat>& bow_img_descrs,
+    vector<array<float, CLASS_CNT>>& confidences) {
   CV_Assert(!images.empty());
   for (int i = static_cast<int>(images.size()) - 1; i >= 0; --i) {
     if (bow_img_descrs[i].empty()) {
       cout << "Removing " << images[i].f_name << " due to no descriptors.\n";
       images.erase(images.begin() + i);
       bow_img_descrs.erase(bow_img_descrs.begin() + i);
+      confidences.erase(confidences.begin() + i);
     }
   }
 }

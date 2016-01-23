@@ -1,10 +1,10 @@
 # florescence-recognition
 Recognize the florescence of corn in digital images.  
-There're three stages of florescence for corn: non-bloomed, partially-bloomed and fully-bloomed. The features of flowers in different florescences, such as shape and color, can be useful in automatic recognization.  
+There're three stages of florescence for corn: non-bloomed, partially-bloomed and fully-bloomed. The features of flowers in different florescences, such as shape and color, can be useful in automatic recognition.  
 The code is based on OpenCV3.10.
 
 ### Pre-process for images
-Considering green leaves as a large part of the images is useless background for recognization, a pre-process for removing green part of the images may enhance performance. Besides, red-and-white sticks and soil are removed too.
+Considering green leaves as a large part of the images is useless background for recognition, a pre-process for removing green part of the images may enhance performance. Besides, red-and-white sticks and soil are removed too.
 
 ### Others
 SIFT is used to detect features.  

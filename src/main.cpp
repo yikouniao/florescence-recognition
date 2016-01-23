@@ -8,7 +8,7 @@ static void Help() {
        << "There're three stages of florescence for corn: "
        << "non-bloomed, partially-bloomed and fully-bloomed. "
        << "The features of flowers in different florescences, such as "
-       << "shape and color, can be useful in automatic recognization.\n"
+       << "shape and color, can be useful in automatic recognition.\n"
        << "The code is based on OpenCV3.10.\n";
 }
 

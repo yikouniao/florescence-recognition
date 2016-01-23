@@ -13,6 +13,7 @@ static void Help() {
 }
 
 int main(int argc, char** argv) {
+  Help();
   vector<Image> images_train, images_test;
   InitImages(images_train, images_test);
   SaveImages(images_path, images_train, images_test);

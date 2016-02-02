@@ -3,9 +3,14 @@ Recognize the florescence of corn in digital images.
 There're three stages of florescence for corn: non-bloomed, partially-bloomed and fully-bloomed. The features of flowers in different florescences, such as shape and color, can be useful in automatic recognition.  
 The code is based on OpenCV3.10.
 
-### Pre-process for images
-Considering green leaves as a large part of the images is useless background for recognition, a pre-process for removing green part of the images may enhance performance. Besides, red-and-white sticks and soil are removed too.  
-Actually, it seems to be vain and was commented out.
+### Process
+1. Compute the descriptors from train images with SIFT.
+2. Cluster the descriptors with k-means and get the vocabularies.
+3. Compute the bag of words(BoW) vector in the training set for each class.
+4. Train classifiers with SVM for each class.
+5. Compute the descriptors for each image in the test set.
+6. Implement the classifiers on the test dataset.
+7. Output the results to files and screen.
 
 ### Results
 The results are in `data/results.txt`. The accuracy is average above 0.7. Besides, process data of vocabularies, SVMs, BoWs, etc is also in folder `data`.

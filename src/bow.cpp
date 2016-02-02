@@ -1,6 +1,5 @@
 #include "bow.h"
 #include "directory.h"
-#include "filter.h"
 
 using namespace cv;
 using namespace cv::xfeatures2d;
@@ -56,7 +55,6 @@ void CalculateImageDescriptors(
                           images[i].f_name.substr(4) + ".xml.gz";
 
     Mat color_img = imread(images[i].f_name);
-    //ImgPreProc(color_img);
     vector<KeyPoint> keypoints;
     fdetector->detect(color_img, keypoints);
     bow_extractor->compute(color_img, keypoints, img_descriptors[i]);

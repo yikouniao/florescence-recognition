@@ -1,5 +1,4 @@
 #include "vocabulary.h"
-#include "filter.h"
 
 using namespace std;
 using namespace cv;
@@ -42,9 +41,8 @@ Mat TrainVocabulary(const string& filename,
                                3, KMEANS_PP_CENTERS);
   size_t i = images.size();
   while (i-- > 0) {
-    // Compute the descriptors from train image.
+    // Compute the descriptors from train images.
     Mat color_img = imread(images[i].f_name);
-    //ImgPreProc(color_img);
     if (!color_img.data) {
       cerr << images[i].f_name << "can not be read.\n";
       exit(1);

@@ -4,7 +4,11 @@ There're three stages of florescence for corn: non-bloomed, partially-bloomed an
 The code is based on OpenCV3.10.
 
 ### Pre-process for images
-Considering green leaves as a large part of the images is useless background for recognition, a pre-process for removing green part of the images may enhance performance. Besides, red-and-white sticks and soil are removed too.
+Considering green leaves as a large part of the images is useless background for recognition, a pre-process for removing green part of the images may enhance performance. Besides, red-and-white sticks and soil are removed too.  
+Actually, it seems to be vain and was commented out.
+
+### Results
+The results are in `data/results.txt`. The accuracy is average above 0.7. Besides, process data of vocabularies, SVMs, BoWs, etc is also in folder `data`.
 
 ### Others
 SIFT is used to detect features.  
